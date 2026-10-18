@@ -85,7 +85,7 @@ public sealed partial class ShuttleMapControl : BaseShuttleControl
         _font = new VectorFont(cache.GetResource<FontResource>("/EngineFonts/NotoSans/NotoSans-Regular.ttf"), 10);
 
         // Frontier: don't rescale the map when the window gets bigger/smaller,
-        // increase world range instead 
+        // increase world range instead
         RescaleMap = false;
         // End Frontier
     }
@@ -256,6 +256,7 @@ public sealed partial class ShuttleMapControl : BaseShuttleControl
         }
 
         DrawParallax(handle);
+        DrawHexOverlay(handle);   // гекси малюються під об'єктами
 
         var viewedMapUid = _mapSystem.GetMapOrInvalid(ViewingMap);
         var matty = Matrix3Helpers.CreateInverseTransform(Offset, Angle.Zero);

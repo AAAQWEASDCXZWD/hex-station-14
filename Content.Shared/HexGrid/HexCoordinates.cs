@@ -61,16 +61,17 @@ public static class HexGrid
     public static IEnumerable<HexCoordinates> GetHexesInRadius(int radius)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(radius);
+        return EnumerateHexesInRadius(radius);
+    }
 
+    private static IEnumerable<HexCoordinates> EnumerateHexesInRadius(int radius)
+    {
         for (var q = -radius; q <= radius; q++)
         {
             var minR = Math.Max(-radius, -q - radius);
             var maxR = Math.Min(radius, -q + radius);
-
             for (var r = minR; r <= maxR; r++)
-            {
                 yield return new HexCoordinates(q, r);
-            }
         }
     }
 

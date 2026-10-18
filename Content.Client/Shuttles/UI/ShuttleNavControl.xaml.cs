@@ -176,6 +176,8 @@ public sealed partial class ShuttleNavControl : BaseShuttleControl
         var shuttleToView = Matrix3x2.CreateScale(new Vector2(MinimapScale, -MinimapScale)) * Matrix3x2.CreateTranslation(MidPoint);
         // End Frontier
 
+        DrawHexOverlay(handle, worldToShuttle, shuttleToView); //hex
+
         // Frontier: north line drawing
         var rot = ourEntRot + _rotation.Value;
         DrawNorthLine(handle, rot);
