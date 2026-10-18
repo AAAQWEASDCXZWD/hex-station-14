@@ -1,0 +1,24 @@
+- type: hexNameSet
+  id: DefaultHexNames
+  hexes:
+  - q: 0
+    r: 0
+    name: Альфа
+  - q: 0
+    r: -1
+    name: Бета
+  - q: 1
+    r: -1
+    name: Гамма
+  - q: 1
+    r: 0
+    name: Дельта
+  - q: 0
+    r: 1
+    name: Эпсилон
+  - q: -1
+    r: 1
+    name: Зета
+  - q: -1
+    r: 0
+    name: Эта

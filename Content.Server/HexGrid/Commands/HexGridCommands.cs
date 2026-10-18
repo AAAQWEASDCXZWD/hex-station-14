@@ -93,3 +93,32 @@ public sealed class HexSpawnCommand : IConsoleCommand
         shell.WriteLine($"Створено 6 предметів {DebugPrototype} у вершинах гекса q={hex.Q}, r={hex.R}.");
     }
 }
+
+[AdminCommand(AdminFlags.Debug)]
+public sealed class HexNameCommand : IConsoleCommand
+{
+    [Dependency] private readonly IEntityManager _entityManager = default!;
+
+    public string Command => "hexname";
+    public string Description => "Changes the displayed name of a hex for the current round.";
+    public string Help => "Usage: hexname <q> <r> <name>";
+
+    public void Execute(IConsoleShell shell, string argStr, string[] args)
+    {
+        if (args.Length < 3 || !int.TryParse(args[0], out var q) || !int.TryParse(args[1], out var r))
+        {
+            shell.WriteError(Help);
+            return;
+        }
+
+        var name = string.Join(' ', args[2..]).Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            shell.WriteError(Help);
+            return;
+        }
+
+        _entityManager.System<HexGridNameSystem>().SetName(new HexCoordinates(q, r), name);
+        shell.WriteLine($"Hex q={q}, r={r} renamed to '{name}'.");
+    }
+}
