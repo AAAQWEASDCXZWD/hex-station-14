@@ -17,6 +17,7 @@ using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
 using Robust.Shared.Timing;
 using Content.Shared._NF.Trade;
+using Content.Shared._NF.Shipyard.Components;
 
 namespace Content.Shared.Access.Systems;
 
@@ -31,6 +32,7 @@ public sealed class AccessReaderSystem : EntitySystem
     [Dependency] private readonly SharedHandsSystem _handsSystem = default!;
     [Dependency] private readonly SharedContainerSystem _containerSystem = default!;
     [Dependency] private readonly SharedStationRecordsSystem _recordsSystem = default!;
+    [Dependency] private readonly SharedTransformSystem _transform = default!;
 
     private static readonly ProtoId<TagPrototype> PreventAccessLoggingTag = "PreventAccessLogging";
 
@@ -121,7 +123,7 @@ public sealed class AccessReaderSystem : EntitySystem
         var access = FindAccessTags(user, accessSources);
         FindStationRecordKeys(user, out var stationKeys, accessSources);
 
-        if (!IsAllowed(access, stationKeys, target, reader))
+        if (!IsAllowed(access, stationKeys, target, reader, user, accessSources))
             return false;
 
         if (!_tag.HasTag(user, PreventAccessLoggingTag))
@@ -168,17 +170,21 @@ public sealed class AccessReaderSystem : EntitySystem
     /// <param name="stationKeys">A collection of station record keys being used on the access reader.</param>
     /// <param name="target">The entity being checked.</param>
     /// <param name="reader">The access reader being checked.</param>
+    /// <param name="user">Optional user entity requesting access.</param>
+    /// <param name="accessSources">Optional collection of items providing access.</param>
     public bool IsAllowed(
         ICollection<ProtoId<AccessLevelPrototype>> access,
         ICollection<StationRecordKey> stationKeys,
         EntityUid target,
-        AccessReaderComponent reader)
+        AccessReaderComponent reader,
+        EntityUid? user = null,
+        HashSet<EntityUid>? accessSources = null)
     {
         if (!reader.Enabled)
             return true;
 
         if (reader.ContainerAccessProvider == null)
-            return IsAllowedInternal(access, stationKeys, reader);
+            return IsAllowedInternal(access, stationKeys, target, reader, user, accessSources);
 
         if (!_containerSystem.TryGetContainer(target, reader.ContainerAccessProvider, out var container))
             return false;
@@ -193,17 +199,71 @@ public sealed class AccessReaderSystem : EntitySystem
             if (!TryComp(entity, out AccessReaderComponent? containedReader))
                 continue;
 
-            if (IsAllowed(access, stationKeys, entity, containedReader))
+            if (IsAllowed(access, stationKeys, entity, containedReader, user, accessSources))
                 return true;
         }
 
         return false;
     }
 
-    private bool IsAllowedInternal(ICollection<ProtoId<AccessLevelPrototype>> access, ICollection<StationRecordKey> stationKeys, AccessReaderComponent reader)
+    private bool IsAllowedInternal(
+        ICollection<ProtoId<AccessLevelPrototype>> access,
+        ICollection<StationRecordKey> stationKeys,
+        EntityUid target,
+        AccessReaderComponent reader,
+        EntityUid? user = null,
+        HashSet<EntityUid>? accessSources = null)
     {
-        return !reader.Enabled
-               || AreAccessTagsAllowed(access, reader)
+        if (!reader.Enabled)
+            return true;
+
+        var gridUid = _transform.GetGrid(target);
+        if (gridUid != null && TryComp<ShuttleDeedComponent>(gridUid, out var shuttleDeed))
+        {
+            return IsAllowedOnShuttle(gridUid.Value, shuttleDeed, access, stationKeys, reader, user, accessSources);
+        }
+
+        return AreAccessTagsAllowed(access, reader)
+               || AreStationRecordKeysAllowed(stationKeys, reader);
+    }
+
+    private bool IsAllowedOnShuttle(
+        EntityUid shuttleGridUid,
+        ShuttleDeedComponent shuttleDeed,
+        ICollection<ProtoId<AccessLevelPrototype>> globalAccess,
+        ICollection<StationRecordKey> stationKeys,
+        AccessReaderComponent reader,
+        EntityUid? user,
+        HashSet<EntityUid>? accessSources)
+    {
+        if (reader.AccessLists.Count == 0)
+            return true;
+
+        if (globalAccess.Contains("CentralCommand"))
+            return true;
+
+        var shuttleTags = new HashSet<ProtoId<AccessLevelPrototype>>();
+        var netGrid = GetNetEntity(shuttleGridUid);
+
+        if (accessSources != null)
+        {
+            foreach (var item in accessSources)
+            {
+                if (TryComp<ShuttleAccessComponent>(item, out var shuttleAccess) &&
+                    shuttleAccess.Groups.TryGetValue(netGrid, out var group))
+                {
+                    shuttleTags.UnionWith(group.Tags);
+                }
+
+                if (TryComp<ShuttleDeedComponent>(item, out var cardDeed) &&
+                    cardDeed.ShuttleUid == shuttleGridUid)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return AreAccessTagsAllowed(shuttleTags, reader)
                || AreStationRecordKeysAllowed(stationKeys, reader);
     }
 

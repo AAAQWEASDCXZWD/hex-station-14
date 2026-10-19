@@ -50,3 +50,17 @@
     prototype: ComputerWithdrawBankATM
   - type: ComputerWallmountBoard # Frontier
     prototype: ComputerWallmountWithdrawBankATM # Frontier
+
+- type: entity
+  parent: BaseComputerCircuitboard
+  id: ShuttleIdComputerCircuitboard
+  name: shuttle ID card computer board
+  description: A computer printed circuit board for a shuttle ID card computer.
+  components:
+  - type: Sprite
+    state: cpu_command
+  - type: ComputerBoard
+    prototype: ComputerIdShuttle
+  - type: ComputerTabletopBoard
+    prototype: ComputerIdShuttleTabletop
+

@@ -206,7 +206,23 @@ public sealed partial class ShuttleRecordsSystem
         deed.ShuttleName = shuttleRecord.Name;
         deed.ShuttleNameSuffix = shuttleRecord.Suffix;
         deed.PurchasedWithVoucher = shuttleRecord.PurchasedWithVoucher;
+        if (_entityManager.TryGetComponent<ShuttleDeedComponent>(shuttleEntity, out var originalDeed))
+        {
+            deed.OwnerEntity = originalDeed.OwnerEntity;
+            deed.OwnerUserId = originalDeed.OwnerUserId;
+        }
         Dirty(targetId, deed);
+
+        var shuttleAccess = _entityManager.EnsureComponent<ShuttleAccessComponent>(targetId);
+        var fullName = deed.ShuttleName + (string.IsNullOrEmpty(deed.ShuttleNameSuffix) ? "" : " " + deed.ShuttleNameSuffix);
+        var allAccess = new List<Robust.Shared.Prototypes.ProtoId<Content.Shared.Access.AccessLevelPrototype>>
+        {
+            "Captain", "Command", "Engineering", "ChiefEngineer", "Medical", "ChiefMedicalOfficer",
+            "Cargo", "Quartermaster", "Salvage", "Security", "HeadOfSecurity", "Armory", "Brig",
+            "Service", "Janitor", "External", "Maintenance", "Pilot", "Mercenary", "Frontier"
+        };
+        shuttleAccess.Groups[shuttleRecord.EntityUid] = new ShuttleAccessGroup(shuttleRecord.EntityUid, fullName, allAccess);
+        Dirty(targetId, shuttleAccess);
     }
 
     /// <summary>

@@ -18,6 +18,7 @@
   - type: Access
   - type: IdCard
   - type: StationRecordKeyStorage
+  - type: ShuttleAccess
   - type: Tag
     tags:
     - DoorBumpOpener

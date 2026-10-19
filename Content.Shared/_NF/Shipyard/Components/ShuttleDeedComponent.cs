@@ -26,5 +26,11 @@ public sealed partial class ShuttleDeedComponent : Component
     public string? ShuttleOwner = "Unknown";
 
     [DataField, AutoNetworkedField]
+    public Robust.Shared.Network.NetUserId? OwnerUserId;
+
+    [DataField, AutoNetworkedField]
+    public EntityUid? OwnerEntity;
+
+    [DataField, AutoNetworkedField]
     public bool PurchasedWithVoucher;
 }

@@ -228,10 +228,30 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         var deedID = EnsureComp<ShuttleDeedComponent>(targetId);
 
         var shuttleOwner = Name(player).Trim();
-        AssignShuttleDeedProperties((targetId, deedID), shuttleUid, name, shuttleOwner, voucherUsed);
+        var ownerUserId = _player.TryGetSessionByEntity(player, out var session) ? session.UserId : (Robust.Shared.Network.NetUserId?)null;
+
+        AssignShuttleDeedProperties((targetId, deedID), shuttleUid, name, shuttleOwner, voucherUsed, player, ownerUserId);
 
         var deedShuttle = EnsureComp<ShuttleDeedComponent>(shuttleUid);
-        AssignShuttleDeedProperties((shuttleUid, deedShuttle), shuttleUid, name, shuttleOwner, voucherUsed);
+        AssignShuttleDeedProperties((shuttleUid, deedShuttle), shuttleUid, name, shuttleOwner, voucherUsed, player, ownerUserId);
+
+        // Grant shuttle access group to the purchaser card
+        var shuttleAccess = EnsureComp<ShuttleAccessComponent>(targetId);
+        var netShuttle = _entityManager.GetNetEntity(shuttleUid);
+        var fullShuttleName = GetFullName(deedShuttle);
+        var allShuttleAccesses = new List<ProtoId<AccessLevelPrototype>>
+        {
+            "Captain", "Command", "Engineering", "ChiefEngineer", "Medical", "ChiefMedicalOfficer",
+            "Cargo", "Quartermaster", "Salvage", "Security", "HeadOfSecurity", "Armory", "Brig",
+            "Service", "Janitor", "External", "Maintenance", "Pilot", "Mercenary", "Frontier"
+        };
+        foreach (var accessLevel in component.NewAccessLevels)
+        {
+            if (!allShuttleAccesses.Contains(accessLevel))
+                allShuttleAccesses.Add(accessLevel);
+        }
+        shuttleAccess.Groups[netShuttle] = new ShuttleAccessGroup(netShuttle, fullShuttleName, allShuttleAccesses);
+        Dirty(targetId, shuttleAccess);
 
         if (!voucherUsed && component.NewJobTitle != null && !HasComp<PreventShipyardTitleOverwriteComponent>(args.Actor))
         {
@@ -430,6 +450,11 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         _shuttleRecordsSystem.TrySetSaleTime(shuttleNetEntity);
 
         RemComp<ShuttleDeedComponent>(targetId);
+        if (TryComp<ShuttleAccessComponent>(targetId, out var targetShuttleAccess))
+        {
+            targetShuttleAccess.Groups.Remove(shuttleNetEntity);
+            Dirty(targetId, targetShuttleAccess);
+        }
 
         if (!voucherUsed)
         {
@@ -812,12 +837,23 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     }
 
     #region Deed Assignment
-    void AssignShuttleDeedProperties(Entity<ShuttleDeedComponent> deed, EntityUid? shuttleUid, string? shuttleName, string? shuttleOwner, bool purchasedWithVoucher)
+    void AssignShuttleDeedProperties(
+        Entity<ShuttleDeedComponent> deed,
+        EntityUid? shuttleUid,
+        string? shuttleName,
+        string? shuttleOwner,
+        bool purchasedWithVoucher,
+        EntityUid? ownerEntity = null,
+        Robust.Shared.Network.NetUserId? ownerUserId = null)
     {
         deed.Comp.ShuttleUid = shuttleUid;
         TryParseShuttleName(deed.Comp, shuttleName!);
         deed.Comp.ShuttleOwner = shuttleOwner;
         deed.Comp.PurchasedWithVoucher = purchasedWithVoucher;
+        if (ownerEntity != null)
+            deed.Comp.OwnerEntity = ownerEntity;
+        if (ownerUserId != null)
+            deed.Comp.OwnerUserId = ownerUserId;
         Dirty(deed);
     }
 

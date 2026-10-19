@@ -1,0 +1,70 @@
+- type: entity
+  parent: [BaseStructureIndestructible, BaseComputerAiAccess]
+  id: ComputerIdShuttle
+  name: shuttle ID card computer
+  description: Terminal for managing shuttle access groups and crew permissions across multiple ships.
+  components:
+  - type: Sprite
+    layers:
+    - map: ["computerLayerBody"]
+      state: computer
+    - map: ["computerLayerKeyboard"]
+      state: id_keyboard
+    - map: ["computerLayerScreen"]
+      state: id
+    - map: ["computerLayerKeys"]
+      state: id_key
+  - type: ShuttleIdCardConsole
+    privilegedIdSlot:
+      name: id-card-console-privileged-id
+      ejectSound: /Audio/Machines/id_swipe.ogg
+      insertSound: /Audio/Weapons/Guns/MagIn/batrifle_magin.ogg
+      ejectOnBreak: true
+      swap: false
+      whitelist:
+        components:
+        - IdCard
+    targetIdSlot:
+      name: id-card-console-target-id
+      ejectSound: /Audio/Machines/id_swipe.ogg
+      insertSound: /Audio/Weapons/Guns/MagIn/batrifle_magin.ogg
+      ejectOnBreak: true
+      swap: false
+      whitelist:
+        components:
+        - IdCard
+  - type: ActivatableUI
+    key: enum.ShuttleIdCardConsoleUiKey.Key
+  - type: UserInterface
+    interfaces:
+      enum.ShuttleIdCardConsoleUiKey.Key:
+        type: ShuttleIdCardConsoleBoundUserInterface
+  - type: ItemSlots
+  - type: ContainerContainer
+    containers:
+      board: !type:Container
+      ShuttleIdCardConsole-privilegedId: !type:ContainerSlot
+      ShuttleIdCardConsole-targetId: !type:ContainerSlot
+  - type: Computer
+    board: ShuttleIdComputerCircuitboard
+
+- type: entity
+  parent: [BaseStructureIndestructible, BaseStructureComputerTabletop, ComputerIdShuttle]
+  id: ComputerIdShuttleTabletop
+  name: tabletop shuttle ID card computer
+  components:
+  - type: Sprite
+    drawdepth: SmallObjects
+    layers:
+    - map: ["computerLayerBody"]
+      sprite: _NF/Structures/Machines/computer_tabletop.rsi
+      state: computer_tabletop
+    - map: ["computerLayerKeyboard"]
+      sprite: _NF/Structures/Machines/computer_tabletop.rsi
+      state: generic_keyboard_tabletop
+    - map: ["computerLayerScreen"]
+      sprite: Structures/Machines/computers.rsi
+      state: id
+    - map: ["computerLayerKeys"]
+      sprite: Structures/Machines/computers.rsi
+      state: id_key
