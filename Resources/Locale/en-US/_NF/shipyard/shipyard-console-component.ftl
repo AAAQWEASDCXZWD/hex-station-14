@@ -92,3 +92,17 @@ shipyard-console-engine-Bananium = Bananium
 
 shipyard-console-sortby-Name = Name
 shipyard-console-sortby-Price = Price
+
+# Bluespace Storage
+shipyard-console-menu-store-button = Store in Bluespace
+shipyard-console-menu-recall-button = Recall from Bluespace
+shipyard-console-menu-status-stored = Status: In Bluespace
+shipyard-console-menu-status-docked = Status: Docked
+shipyard-console-storage-captain-access-required = Captain access is required for bluespace storage operations.
+shipyard-console-storage-already-stored = Shuttle is already stored in bluespace.
+shipyard-console-storage-not-stored = Shuttle is not in bluespace storage.
+shipyard-console-storage-store-success = Shuttle {$vessel} successfully stored in bluespace.
+shipyard-console-storage-recall-success-docked = Shuttle successfully recalled and docked to station.
+shipyard-console-storage-recall-success-proximity = Shuttle successfully recalled near the station.
+shipyard-console-storage-cannot-sell-stored = Cannot sell shuttle while stored in bluespace. Recall it first.
+

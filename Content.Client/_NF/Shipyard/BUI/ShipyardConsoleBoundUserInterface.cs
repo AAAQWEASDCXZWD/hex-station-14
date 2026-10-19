@@ -29,6 +29,8 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
             _menu = this.CreateWindow<ShipyardConsoleMenu>();
             _menu.OnOrderApproved += ApproveOrder;
             _menu.OnSellShip += SellShip;
+            _menu.OnStoreShip += StoreShip;
+            _menu.OnRecallShip += RecallShip;
             _menu.TargetIdButton.OnPressed += _ => SendMessage(new ItemSlotButtonPressedEvent("ShipyardConsole-targetId"));
 
             // Disable the NFSD popup for now.
@@ -85,5 +87,15 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
     {
         //reserved for a sanity check, but im not sure what since we check all the important stuffs on server already
         SendMessage(new ShipyardConsoleSellMessage());
+    }
+
+    private void StoreShip(ButtonEventArgs args)
+    {
+        SendMessage(new ShipyardConsoleStoreMessage());
+    }
+
+    private void RecallShip(ButtonEventArgs args)
+    {
+        SendMessage(new ShipyardConsoleRecallMessage());
     }
 }

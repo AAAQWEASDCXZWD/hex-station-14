@@ -45,6 +45,9 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     private bool _enabled;
     private float _baseSaleRate;
 
+    public MapId? BluespaceStorageMap { get; private set; }
+    private float _storageIndex;
+
     // The type of error from the attempted sale of a ship.
     public enum ShipyardSaleError
     {
@@ -55,12 +58,41 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         MessageOverwritten, // Overwritten message.
     }
 
-    // TODO: swap to strictly being a formatted message.
     public struct ShipyardSaleResult
     {
         public ShipyardSaleError Error; // Whether or not the ship can be sold.
         public string? OrganicName; // In case an organic is aboard, this will be set to the first that's aboard.
         public string? OverwrittenMessage; // The message to write if Error is MessageOverwritten.
+    }
+
+    public enum ShipyardStorageError
+    {
+        Success,
+        InvalidShip,
+        Undocked,
+        OrganicsAboard,
+        RequiresCaptainAccess,
+        AlreadyStored,
+    }
+
+    public struct ShipyardStorageResult
+    {
+        public ShipyardStorageError Error;
+        public string? OrganicName;
+    }
+
+    public enum ShipyardRecallError
+    {
+        Success,
+        InvalidShip,
+        NotStored,
+        RequiresCaptainAccess,
+    }
+
+    public struct ShipyardRecallResult
+    {
+        public ShipyardRecallError Error;
+        public bool Docked;
     }
 
     public override void Initialize()
@@ -78,6 +110,8 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         SubscribeLocalEvent<ShipyardConsoleComponent, BoundUIOpenedEvent>(OnConsoleUIOpened);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleSellMessage>(OnSellMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsolePurchaseMessage>(OnPurchaseMessage);
+        SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleStoreMessage>(OnStoreMessage);
+        SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleRecallMessage>(OnRecallMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntInsertedIntoContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntRemovedFromContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<RoundRestartCleanupEvent>(OnRoundRestart);
@@ -98,6 +132,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     private void OnRoundRestart(RoundRestartCleanupEvent ev)
     {
         CleanupShipyard();
+        CleanupBluespaceStorage();
     }
 
     private void SetShipyardEnabled(bool value)
@@ -213,25 +248,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return result;
         }
 
-        var gridDocks = _docking.GetDocks(targetGrid.Value);
-        var shuttleDocks = _docking.GetDocks(shuttleUid);
-        var isDocked = false;
-
-        foreach (var shuttleDock in shuttleDocks)
-        {
-            foreach (var gridDock in gridDocks)
-            {
-                if (shuttleDock.Comp.DockedWith == gridDock.Owner)
-                {
-                    isDocked = true;
-                    break;
-                }
-            }
-            if (isDocked)
-                break;
-        }
-
-        if (!isDocked)
+        if (!IsShuttleDocked(shuttleUid, targetGrid.Value))
         {
             _sawmill.Warning($"shuttle is not docked to that station");
             result.Error = ShipyardSaleError.Undocked;
@@ -387,5 +404,202 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     {
         string?[] parts = { comp.ShuttleName, comp.ShuttleNameSuffix };
         return string.Join(' ', parts.Where(it => it != null));
+    }
+
+    public bool IsShuttleDocked(EntityUid shuttleUid, EntityUid targetGrid)
+    {
+        var gridDocks = _docking.GetDocks(targetGrid);
+        var shuttleDocks = _docking.GetDocks(shuttleUid);
+
+        foreach (var shuttleDock in shuttleDocks)
+        {
+            foreach (var gridDock in gridDocks)
+            {
+                if (shuttleDock.Comp.DockedWith == gridDock.Owner)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public void SetupBluespaceStorageIfNeeded()
+    {
+        if (BluespaceStorageMap != null && _map.MapExists(BluespaceStorageMap.Value))
+            return;
+
+        _map.CreateMap(out var mapId);
+        BluespaceStorageMap = mapId;
+        _map.SetPaused(BluespaceStorageMap.Value, true);
+    }
+
+    private void CleanupBluespaceStorage()
+    {
+        if (BluespaceStorageMap == null || !_map.MapExists(BluespaceStorageMap.Value))
+        {
+            BluespaceStorageMap = null;
+            return;
+        }
+
+        _map.DeleteMap(BluespaceStorageMap.Value);
+        BluespaceStorageMap = null;
+    }
+
+    public bool HasCaptainAccess(EntityUid targetId)
+    {
+        var tags = _access.FindAccessTags(targetId);
+        return tags.Contains("Captain") || tags.Contains("Command");
+    }
+
+    public bool HasCaptainAccess(EntityUid player, EntityUid? targetId)
+    {
+        if (targetId != null && HasCaptainAccess(targetId.Value))
+            return true;
+        return HasCaptainAccess(player);
+    }
+
+    public ShipyardStorageResult TryStoreShuttle(EntityUid stationUid, EntityUid shuttleUid, EntityUid consoleUid, EntityUid playerUid, EntityUid targetId)
+    {
+        ShipyardStorageResult result = new();
+
+        if (!HasCaptainAccess(playerUid, targetId))
+        {
+            result.Error = ShipyardStorageError.RequiresCaptainAccess;
+            return result;
+        }
+
+        if (!TryComp<StationDataComponent>(stationUid, out var stationData)
+            || !HasComp<ShuttleComponent>(shuttleUid)
+            || !HasComp<TransformComponent>(shuttleUid))
+        {
+            result.Error = ShipyardStorageError.InvalidShip;
+            return result;
+        }
+
+        if (HasComp<ShuttleStoredInBluespaceComponent>(shuttleUid))
+        {
+            result.Error = ShipyardStorageError.AlreadyStored;
+            return result;
+        }
+
+        var targetGrid = _station.GetLargestGrid((stationUid, stationData));
+        if (targetGrid == null)
+        {
+            result.Error = ShipyardStorageError.InvalidShip;
+            return result;
+        }
+
+        if (!IsShuttleDocked(shuttleUid, targetGrid.Value))
+        {
+            result.Error = ShipyardStorageError.Undocked;
+            return result;
+        }
+
+        var mobQuery = GetEntityQuery<MobStateComponent>();
+        var xformQuery = GetEntityQuery<TransformComponent>();
+        var charName = FoundOrganics(shuttleUid, mobQuery, xformQuery);
+        if (charName != null)
+        {
+            result.Error = ShipyardStorageError.OrganicsAboard;
+            result.OrganicName = charName;
+            return result;
+        }
+
+        // Undock all docks on shuttle
+        var shuttleDocks = _docking.GetDocks(shuttleUid);
+        foreach (var dock in shuttleDocks)
+        {
+            if (dock.Comp.DockedWith != null)
+            {
+                _docking.Undock(dock);
+            }
+        }
+
+        SetupBluespaceStorageIfNeeded();
+        var storageMapUid = _map.GetMap(BluespaceStorageMap!.Value);
+        _storageIndex += 1000f;
+        _transform.SetCoordinates(shuttleUid, new EntityCoordinates(storageMapUid, new Vector2(_storageIndex, 0)));
+
+        var stored = EnsureComp<ShuttleStoredInBluespaceComponent>(shuttleUid);
+        stored.StoredTime = _timing.CurTime;
+        stored.StationUid = stationUid;
+        stored.StoredBy = Name(playerUid);
+
+        if (TryComp<ShuttleDeedComponent>(shuttleUid, out var deedShuttle))
+        {
+            deedShuttle.IsStored = true;
+            Dirty(shuttleUid, deedShuttle);
+        }
+
+        if (TryComp<ShuttleDeedComponent>(targetId, out var deedCard))
+        {
+            deedCard.IsStored = true;
+            Dirty(targetId, deedCard);
+        }
+
+        _sawmill.Info($"Stored shuttle {shuttleUid} in bluespace storage map {BluespaceStorageMap.Value}");
+        result.Error = ShipyardStorageError.Success;
+        return result;
+    }
+
+    public ShipyardRecallResult TryRecallShuttle(EntityUid stationUid, EntityUid shuttleUid, EntityUid consoleUid, EntityUid playerUid, EntityUid targetId)
+    {
+        ShipyardRecallResult result = new();
+
+        if (!HasCaptainAccess(playerUid, targetId))
+        {
+            result.Error = ShipyardRecallError.RequiresCaptainAccess;
+            return result;
+        }
+
+        if (!TryComp<StationDataComponent>(stationUid, out var stationData)
+            || !HasComp<ShuttleComponent>(shuttleUid)
+            || !HasComp<TransformComponent>(shuttleUid))
+        {
+            result.Error = ShipyardRecallError.InvalidShip;
+            return result;
+        }
+
+        if (!HasComp<ShuttleStoredInBluespaceComponent>(shuttleUid))
+        {
+            result.Error = ShipyardRecallError.NotStored;
+            return result;
+        }
+
+        var targetGrid = _station.GetLargestGrid((stationUid, stationData));
+        if (targetGrid == null)
+        {
+            result.Error = ShipyardRecallError.InvalidShip;
+            return result;
+        }
+
+        if (!TryComp<ShuttleComponent>(shuttleUid, out var shuttleComponent))
+        {
+            result.Error = ShipyardRecallError.InvalidShip;
+            return result;
+        }
+
+        var docked = _shuttle.TryFTLDock(shuttleUid, shuttleComponent, targetGrid.Value);
+
+        RemComp<ShuttleStoredInBluespaceComponent>(shuttleUid);
+
+        if (TryComp<ShuttleDeedComponent>(shuttleUid, out var deedShuttle))
+        {
+            deedShuttle.IsStored = false;
+            Dirty(shuttleUid, deedShuttle);
+        }
+
+        if (TryComp<ShuttleDeedComponent>(targetId, out var deedCard))
+        {
+            deedCard.IsStored = false;
+            Dirty(targetId, deedCard);
+        }
+
+        _sawmill.Info($"Recalled shuttle {shuttleUid} from bluespace storage. Docked: {docked}");
+        result.Error = ShipyardRecallError.Success;
+        result.Docked = docked;
+        return result;
     }
 }

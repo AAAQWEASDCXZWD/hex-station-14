@@ -66,5 +66,19 @@
                 <Label Name="DeedTitle" Text=""/>
             </BoxContainer>
         </GridContainer>
+        <BoxContainer Orientation="Horizontal" HorizontalExpand="True" Margin="0 4 0 4" Name="StorageContainer" Visible="False">
+            <Button Name="StoreShipButton"
+                Text="{Loc 'shipyard-console-menu-store-button'}"
+                Disabled="True"
+                Margin="0 0 5 0" />
+            <Button Name="RecallShipButton"
+                Text="{Loc 'shipyard-console-menu-recall-button'}"
+                Disabled="True"
+                Margin="0 0 5 0" />
+            <Label Name="ShuttleStatusLabel"
+                Align="Center"
+                VerticalAlignment="Center"
+                Margin="8 0 0 0" />
+        </BoxContainer>
     </BoxContainer>
 </controls:FancyWindow>

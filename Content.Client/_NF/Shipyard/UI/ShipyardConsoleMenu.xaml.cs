@@ -29,6 +29,8 @@ public sealed partial class ShipyardConsoleMenu : FancyWindow
     public record OrderApprovedEventArgs(ProtoId<VesselPrototype> Vessel, ProtoId<ShuttleAtmospherePrototype>? Atmosphere);
 
     public event Action<ButtonEventArgs>? OnSellShip;
+    public event Action<ButtonEventArgs>? OnStoreShip;
+    public event Action<ButtonEventArgs>? OnRecallShip;
     public event Action<OrderApprovedEventArgs>? OnOrderApproved;
     private readonly List<VesselSize> _categoryStrings = new();
     private readonly List<VesselClass> _classStrings = new();
@@ -57,6 +59,8 @@ public sealed partial class ShipyardConsoleMenu : FancyWindow
         Atmosphere.OnItemSelected += OnAtmosphereItemSelected;
         SortBy.OnItemSelected += OnSortByItemSelected;
         SellShipButton.OnPressed += (args) => { OnSellShip?.Invoke(args); };
+        StoreShipButton.OnPressed += (args) => { OnStoreShip?.Invoke(args); };
+        RecallShipButton.OnPressed += (args) => { OnRecallShip?.Invoke(args); };
     }
 
 
@@ -391,7 +395,7 @@ public sealed partial class ShipyardConsoleMenu : FancyWindow
             shipPrice = state.ShipSellValue;
 
         ShipAppraisalLabel.Text = $"{BankSystemExtensions.ToSpesoString(shipPrice)} ({state.SellRate * 100.0f:F1}%)";
-        SellShipButton.Disabled = state.ShipDeedTitle == null;
+        SellShipButton.Disabled = state.ShipDeedTitle == null || state.IsShipStored;
         TargetIdButton.Text = state.IsTargetIdPresent
             ? Loc.GetString("id-card-console-window-eject-button")
             : Loc.GetString("id-card-console-window-insert-button");
@@ -405,6 +409,29 @@ public sealed partial class ShipyardConsoleMenu : FancyWindow
         {
             DeedTitle.Text = $"None";
         }
+
+        // Bluespace storage
+        bool hasDeed = state.ShipDeedTitle != null;
+        StorageContainer.Visible = state.IsTargetIdPresent && hasDeed;
+        if (StorageContainer.Visible)
+        {
+            StoreShipButton.Disabled = !state.CanStoreShip;
+            RecallShipButton.Disabled = !state.CanRecallShip;
+            StoreShipButton.Visible = !state.IsShipStored;
+            RecallShipButton.Visible = state.IsShipStored;
+
+            if (state.IsShipStored)
+            {
+                ShuttleStatusLabel.Text = Loc.GetString("shipyard-console-menu-status-stored");
+                ShuttleStatusLabel.FontColorOverride = Color.FromHex("#70b0ff");
+            }
+            else
+            {
+                ShuttleStatusLabel.Text = Loc.GetString("shipyard-console-menu-status-docked");
+                ShuttleStatusLabel.FontColorOverride = Color.FromHex("#70ff70");
+            }
+        }
+
         _freeListings = state.FreeListings;
         _validId = state.IsTargetIdPresent;
         PopulateProducts(_lastAvailableProtos, _lastUnavailableProtos, _freeListings, _validId);
