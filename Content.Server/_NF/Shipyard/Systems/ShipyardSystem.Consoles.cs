@@ -16,6 +16,7 @@ using Content.Shared.Ghost;
 using Robust.Server.GameObjects;
 using Robust.Shared.Containers;
 using Robust.Shared.Prototypes;
+using Content.Shared.Doors.Components;
 using Content.Shared.Radio;
 using System.Linq;
 using Content.Server.Administration.Logs;
@@ -235,13 +236,16 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         var deedShuttle = EnsureComp<ShuttleDeedComponent>(shuttleUid);
         AssignShuttleDeedProperties((shuttleUid, deedShuttle), shuttleUid, name, shuttleOwner, voucherUsed, player, ownerUserId);
 
+        // Assign general shuttle access to all unconfigured doors on the shuttle
+        ConfigureShuttleDoorsAccess(shuttleUid);
+
         // Grant shuttle access group to the purchaser card
         var shuttleAccess = EnsureComp<ShuttleAccessComponent>(targetId);
         var netShuttle = _entityManager.GetNetEntity(shuttleUid);
         var fullShuttleName = GetFullName(deedShuttle);
         var allShuttleAccesses = new List<ProtoId<AccessLevelPrototype>>
         {
-            "Captain", "Command", "Engineering", "ChiefEngineer", "Medical", "ChiefMedicalOfficer",
+            "Shuttle", "Captain", "Command", "Engineering", "ChiefEngineer", "Medical", "ChiefMedicalOfficer",
             "Cargo", "Quartermaster", "Salvage", "Security", "HeadOfSecurity", "Armory", "Brig",
             "Service", "Janitor", "External", "Maintenance", "Pilot", "Mercenary", "Frontier"
         };
@@ -927,4 +931,25 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         return 0;
     }
     #endregion Ship Pricing
+
+    /// <summary>
+    /// Configures all doors on the newly purchased shuttle that have no access requirements to use the general Shuttle access.
+    /// </summary>
+    private void ConfigureShuttleDoorsAccess(EntityUid shuttleUid)
+    {
+        var doorQuery = EntityQueryEnumerator<DoorComponent, TransformComponent>();
+        while (doorQuery.MoveNext(out var doorUid, out _, out var xform))
+        {
+            if (xform.GridUid != shuttleUid)
+                continue;
+
+            if (_access.GetMainAccessReader(doorUid, out var mainReader))
+            {
+                if (mainReader.Value.Comp.AccessLists.Count == 0)
+                {
+                    _access.SetAccesses(mainReader.Value, new List<ProtoId<AccessLevelPrototype>> { "Shuttle" });
+                }
+            }
+        }
+    }
 }

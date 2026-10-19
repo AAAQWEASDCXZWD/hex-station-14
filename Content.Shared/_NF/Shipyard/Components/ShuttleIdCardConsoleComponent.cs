@@ -24,6 +24,7 @@ public sealed partial class ShuttleIdCardConsoleComponent : Component
     [DataField, AutoNetworkedField]
     public List<ProtoId<AccessLevelPrototype>> AccessLevels = new()
     {
+        "Shuttle",
         "Armory",
         "Atmospherics",
         "Bailiff",

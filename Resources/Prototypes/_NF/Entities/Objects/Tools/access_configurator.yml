@@ -11,6 +11,7 @@
     sprite: _NF/Objects/Tools/antag_access_configurator.rsi
   - type: AccessOverrider
     accessLevels:
+    - Shuttle
     - Maintenance
     - External
     - Pirate # Frontier

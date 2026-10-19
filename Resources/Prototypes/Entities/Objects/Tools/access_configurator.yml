@@ -19,42 +19,45 @@
         - Belt
     - type: AccessOverrider
       accessLevels:
+      - Shuttle
       - Armory
-      # - Atmospherics # Frontier
-      # - Bar # Frontier
-      - Bailiff # Frontier
+      - Atmospherics
+      - Bar
+      - Bailiff
       - Brig
-      - Brigmedic # Frontier
+      - Brigmedic
       - Captain
-      # - Cargo # Frontier
-      # - Chapel # Frontier
-      # - Chemistry # Frontier
-      # - ChiefMedicalOfficer # Frontier
+      - Cargo
+      - Chapel
+      - Chemistry
+      - ChiefMedicalOfficer
       - Command
-      - Detective # Frontier - moved down
+      - Detective
       - Engineering
       - External
-      - Frontier # Frontier
-      # - Hydroponics # Frontier
+      - Frontier
+      - Hydroponics
       - Janitor
-      # - Kitchen # Frontier
-      # - Lawyer # Frontier
-      - Mail # Frontier
+      - Kitchen
+      - Lawyer
+      - Mail
       - Maintenance
       - Medical
-      - Mercenary # Frontier
-      - ChiefEngineer # Frontier: reordered for "Plant Manager"
-      # - Quartermaster # Frontier
-      # - Research # Frontier
-      # - ResearchDirector # Frontier
-      # - Salvage # Frontier
+      - Mercenary
+      - ChiefEngineer
+      - Pilot
+      - Pirate
+      - Quartermaster
+      - Research
+      - ResearchDirector
+      - Salvage
       - Security
-      - Sergeant # Frontier
+      - Sergeant
       - Service
-      - HeadOfSecurity # Frontier: reordered for "Sheriff"
-      - HeadOfPersonnel # Frontier: reordered for "Station Representative"
-      - StationTrafficController # Frontier
-      # - Theatre # Frontier
+      - HeadOfSecurity
+      - HeadOfPersonnel
+      - StationTrafficController
+      - Theatre
       - GenpopEnter
       - GenpopLeave
       privilegedIdSlot:
@@ -97,6 +100,7 @@
     sprite: Objects/Tools/universal_access_configurator.rsi
   - type: AccessOverrider
     accessLevels:
+    - Shuttle
     - Armory
     - StationAi # Frontier: reordered for "Artificial Intelligence"
     - Atmospherics
@@ -125,6 +129,7 @@
     - Medical
     - Mercenary # Frontier
     - ChiefEngineer # Frontier: reordered for "Plant Manager"
+    - Pilot
     - Pirate # Frontier
     - Quartermaster
     - Research

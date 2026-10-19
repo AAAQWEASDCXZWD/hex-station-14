@@ -14,6 +14,8 @@ using Robust.Shared.Audio.Systems;
 using Robust.Shared.Containers;
 using Robust.Shared.Player;
 using Robust.Shared.Prototypes;
+using Content.Shared._NF.Shipyard;
+using Content.Shared._NF.Shipyard.Components;
 using static Content.Shared.Access.Components.AccessOverriderComponent;
 
 namespace Content.Server.Access.Systems;
@@ -28,6 +30,8 @@ public sealed class AccessOverriderSystem : SharedAccessOverriderSystem
     [Dependency] private readonly PopupSystem _popupSystem = default!;
     [Dependency] private readonly SharedAudioSystem _audioSystem = default!;
     [Dependency] private readonly SharedDoAfterSystem _doAfterSystem = default!;
+    [Dependency] private readonly SharedTransformSystem _transform = default!;
+    [Dependency] private readonly ShuttleDeedSystem _shuttleDeed = default!;
 
     public override void Initialize()
     {
@@ -129,7 +133,7 @@ public sealed class AccessOverriderSystem : SharedAccessOverriderSystem
 
             if (component.TargetAccessReaderId is { Valid: true })
             {
-                possibleAccess = _accessReader.FindAccessTags(idCard).ToArray();
+                possibleAccess = GetAllowedModifyTags(idCard, component.TargetAccessReaderId, component).ToArray();
             }
 
             if (currentAccess != null && possibleAccess != null)
@@ -205,7 +209,7 @@ public sealed class AccessOverriderSystem : SharedAccessOverriderSystem
             return;
 
         var difference = newAccessList.Union(oldTags).Except(newAccessList.Intersect(oldTags)).ToHashSet();
-        var privilegedPerms = _accessReader.FindAccessTags(privilegedId!.Value).ToHashSet();
+        var privilegedPerms = GetAllowedModifyTags(privilegedId!.Value, component.TargetAccessReaderId, component, player);
 
         if (!difference.IsSubsetOf(privilegedPerms))
         {
@@ -246,10 +250,58 @@ public sealed class AccessOverriderSystem : SharedAccessOverriderSystem
         if (!Resolve(uid, ref component))
             return true;
 
-        if (_accessReader.GetMainAccessReader(uid, out var accessReader))
-            return true;
-
         var privilegedId = component.PrivilegedIdSlot.Item;
-        return privilegedId != null && _accessReader.IsAllowed(privilegedId.Value, uid, accessReader);
+        if (privilegedId == null)
+            return false;
+
+        if (component.TargetAccessReaderId is { Valid: true } target)
+        {
+            if (_accessReader.GetMainAccessReader(target, out var accessReader))
+            {
+                return _accessReader.IsAllowed(privilegedId.Value, target, accessReader);
+            }
+        }
+
+        if (_accessReader.GetMainAccessReader(uid, out var selfAccessReader))
+        {
+            return _accessReader.IsAllowed(privilegedId.Value, uid, selfAccessReader);
+        }
+
+        return true;
+    }
+
+    private HashSet<ProtoId<AccessLevelPrototype>> GetAllowedModifyTags(
+        EntityUid privilegedId,
+        EntityUid? targetReader,
+        AccessOverriderComponent component,
+        EntityUid? actor = null)
+    {
+        var tags = _accessReader.FindAccessTags(privilegedId).ToHashSet();
+
+        if (targetReader != null)
+        {
+            var targetGrid = _transform.GetGrid(targetReader.Value);
+            if (targetGrid != null && TryComp<ShuttleDeedComponent>(targetGrid, out var deed))
+            {
+                // If the player/card is the registered owner of this shuttle, or has deed for this shuttle:
+                if ((actor != null && _shuttleDeed.IsShuttleOwner(targetGrid.Value, actor.Value)) ||
+                    _shuttleDeed.IsShuttleOwner(targetGrid.Value, privilegedId) ||
+                    (TryComp<ShuttleDeedComponent>(privilegedId, out var cardDeed) && cardDeed.ShuttleUid == targetGrid) ||
+                    (TryComp<IdCardComponent>(privilegedId, out var idCard) && !string.IsNullOrEmpty(idCard.FullName) && idCard.FullName == deed.ShuttleOwner))
+                {
+                    return component.AccessLevels.ToHashSet();
+                }
+
+                // If crew member with a ShuttleAccess group for this shuttle:
+                var netGrid = GetNetEntity(targetGrid.Value);
+                if (TryComp<ShuttleAccessComponent>(privilegedId, out var shuttleAccess) &&
+                    shuttleAccess.Groups.TryGetValue(netGrid, out var group))
+                {
+                    tags.UnionWith(group.Tags);
+                }
+            }
+        }
+
+        return tags;
     }
 }
