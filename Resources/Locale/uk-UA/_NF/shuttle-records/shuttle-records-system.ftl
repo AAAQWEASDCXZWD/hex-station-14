@@ -1,0 +1,21 @@
+shuttle-records-console-window-title = Комп'ютер обліку шатлів
+shuttle-records-copy-deed-button = Копіювати документ на ID-картку
+shuttle-records-shuttle-name-label = Назва шатла: {$name}
+shuttle-records-shuttle-owner-label = Придбав: {$owner}
+shuttle-records-shuttle-price-label = Ціна придбання: {$price}
+shuttle-records-shuttle-status = Статус шатла: {$status}
+shuttle-records-shuttle-status-active = Є в секторі
+shuttle-records-shuttle-status-inactive = Проданий або знищений
+shuttle-records-transactions = Список операцій
+shuttle-records-detail-title = Відомості про шатл
+shuttle-records-no-idcard = ID-картку не вставлено.
+shuttle-records-no-record-found = Записів не знайдено.
+shuttle-records-no-bank-account = У станції немає банківського рахунку.
+shuttle-records-insufficient-funds = На рахунку станції недостатньо коштів.
+shuttle-records-no-access = Доступ заборонено.
+shuttle-records-transaction-confirm = Ви впевнені?
+shuttle-records-transaction-cost = Вартість операції: {$cost}
+shuttle-records-search = Пошук за шатлом або капітаном
+shuttle-records-time-of-purchase = Час придбання: [color=white]{ $time }[/color]
+shuttle-records-show-active-only = Показувати лише активні шатли
+shuttle-records-purchased-voucher = Шатл придбано за ваучер.

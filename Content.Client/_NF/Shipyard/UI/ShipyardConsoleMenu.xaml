@@ -1,9 +1,18 @@
 <controls:FancyWindow xmlns="https://spacestation14.io"
                            xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
                            xmlns:shipyard="clr-namespace:Content.Client._NF.Shipyard.UI"
+                           xmlns:viewport="clr-namespace:Content.Client.Viewport"
                            SetSize="640 500"
                            MinSize="640 300">
     <BoxContainer Orientation="Vertical" Margin="5 0 5 0">
+        <!-- Hidden viewport used to photograph shuttles for bluespace storage. -->
+        <viewport:ScalingViewport Name="PhotoCaptureViewport"
+                                  MouseFilter="Ignore"
+                                  Modulate="#00000000"
+                                  SetSize="1 1"
+                                  Visible="True"
+                                  HorizontalAlignment="Left"
+                                  VerticalAlignment="Top" />
         <BoxContainer Orientation="Vertical">
             <BoxContainer Orientation="Horizontal">
                 <Label Text="{Loc 'bank-atm-menu-balance-label'}"
@@ -67,6 +76,9 @@
             </BoxContainer>
         </GridContainer>
         <BoxContainer Orientation="Horizontal" HorizontalExpand="True" Margin="0 4 0 4" Name="StorageContainer" Visible="False">
+            <Button Name="BluespaceMenuButton"
+                Text="{Loc 'shipyard-console-menu-open-storage-button'}"
+                Margin="0 0 5 0" />
             <Button Name="StoreShipButton"
                 Text="{Loc 'shipyard-console-menu-store-button'}"
                 Disabled="True"

@@ -33,6 +33,7 @@ using Content.Shared.Database;
 using Content.Shared.Preferences;
 using Content.Server.Shuttles.Components;
 using Content.Server._NF.Station.Components;
+using Content.Shared.Station.Components;
 using System.Text.RegularExpressions;
 using Content.Shared.UserInterface;
 using Robust.Shared.Audio.Systems;
@@ -43,8 +44,12 @@ using Content.Server.StationEvents.Components;
 using Content.Shared._NF.CCVar;
 using Content.Shared.Forensics.Components;
 using Robust.Server.Player;
+using Robust.Shared.ContentPack;
+using Robust.Shared.Player;
 using Robust.Shared.Timing;
+using Robust.Shared.Utility;
 using Content.Shared._NF.Whitelist.Components;
+using System.IO;
 
 namespace Content.Server._NF.Shipyard.Systems;
 
@@ -67,7 +72,34 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     [Dependency] private readonly ChatSystem _chat = default!;
     [Dependency] private readonly MindSystem _mind = default!;
     [Dependency] private readonly ShuttleRecordsSystem _shuttleRecordsSystem = default!;
+
+    /// <summary>
+    ///     Players that have been asked for a photo of a stored shuttle, keyed by that shuttle.
+    /// </summary>
+    private readonly Dictionary<NetEntity, EntityUid> _photoRequesters = new();
+
+    /// <summary>
+    ///     Actions to run once a photo request finishes (successfully or not), e.g. docking a purchased ship.
+    /// </summary>
+    private readonly Dictionary<NetEntity, Action> _photoCallbacks = new();
+
+    /// <summary>
+    ///     Vessel prototype ids of freshly purchased shuttles whose photo has not been taken yet.
+    /// </summary>
+    private readonly Dictionary<EntityUid, string> _pendingVesselPhotos = new();
+
+    /// <summary>
+    ///     Photos of purchasable vessels, keyed by vessel prototype id. All copies of the same vessel share one,
+    ///     so a purchase never has to wait for a client-side screenshot once the photo exists.
+    /// </summary>
+    private readonly Dictionary<string, byte[]> _vesselPreviews = new();
+    private bool _vesselPreviewsLoaded;
+
+    private static readonly ResPath VesselPreviewResourceDir = new("/Textures/_NF/Shipyard/previews");
+    private static readonly ResPath VesselPreviewUserDataDir = new("/shuttle_previews");
+
     [Dependency] private readonly IEntityManager _entityManager = default!;
+    [Dependency] private readonly IResourceManager _resourceManager = default!;
 
     private static readonly Regex DeedRegex = new(@"\s*\([^()]*\)");
 
@@ -104,11 +136,9 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return;
         }
 
-        if (HasComp<ShuttleDeedComponent>(targetId))
+        if (TryComp<ShuttleDeedComponent>(targetId, out var existingDeed))
         {
-            ConsolePopup(player, Loc.GetString("shipyard-console-already-deeded"));
-            PlayDenySound(player, shipyardConsoleUid, component);
-            return;
+            existingDeed.OwnedShuttles.RemoveAll(uid => Deleted(uid));
         }
 
         if (TryComp<AccessReaderComponent>(shipyardConsoleUid, out var accessReaderComponent) && !_access.IsAllowed(player, shipyardConsoleUid, accessReaderComponent))
@@ -192,7 +222,12 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             }
         }
 
-        if (!TryPurchaseShuttle(station, vessel.ShuttlePath, out var shuttleUidOut, atmosphere))
+        // If a photo of this vessel type is already known, the ship can be docked immediately. Otherwise it
+        // stays alone on the shipyard map until the client takes its photo.
+        var vesselPhoto = GetVesselPreview(vessel.ID);
+        var needsPhoto = vesselPhoto == null;
+
+        if (!TryPurchaseShuttle(station, vessel.ShuttlePath, out var shuttleUidOut, atmosphere, dockToStation: !needsPhoto))
         {
             PlayDenySound(player, shipyardConsoleUid, component);
             return;
@@ -233,8 +268,24 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
 
         AssignShuttleDeedProperties((targetId, deedID), shuttleUid, name, shuttleOwner, voucherUsed, player, ownerUserId);
 
+        if (!deedID.OwnedShuttles.Contains(shuttleUid))
+            deedID.OwnedShuttles.Add(shuttleUid);
+
+        // Attach the known photo of this vessel type. All copies of the same vessel share it.
+        if (vesselPhoto != null)
+            deedID.PhotoData = vesselPhoto;
+
+        Dirty(targetId, deedID);
+
         var deedShuttle = EnsureComp<ShuttleDeedComponent>(shuttleUid);
         AssignShuttleDeedProperties((shuttleUid, deedShuttle), shuttleUid, name, shuttleOwner, voucherUsed, player, ownerUserId);
+        if (!deedShuttle.OwnedShuttles.Contains(shuttleUid))
+            deedShuttle.OwnedShuttles.Add(shuttleUid);
+
+        if (vesselPhoto != null)
+            deedShuttle.PhotoData = vesselPhoto;
+
+        Dirty(shuttleUid, deedShuttle);
 
         // Assign general shuttle access to all unconfigured doors on the shuttle
         ConfigureShuttleDoorsAccess(shuttleUid);
@@ -345,6 +396,84 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         }
 
         RefreshState(shipyardConsoleUid, bank.Balance, true, name, sellValue, targetId, (ShipyardConsoleUiKey)args.UiKey, voucherUsed, player);
+
+        if (needsPhoto)
+        {
+            _pendingVesselPhotos[shuttleUid] = vessel.ID;
+
+            var delivery = () => DeliverPurchasedShuttle(shipyardConsoleUid, targetId, station, shuttleUid, player);
+            RequestShuttlePhoto(shipyardConsoleUid, targetId, shuttleUid, player, delivery, requireStored: false);
+        }
+    }
+
+    /// <summary>
+    ///     Loads vessel photos: first the ones captured on this server (persisted in user data), then the
+    ///     pre-rendered ones shipped with the game. Every copy of the same vessel shares a single photo.
+    /// </summary>
+    private void EnsureVesselPreviewsLoaded()
+    {
+        if (_vesselPreviewsLoaded)
+            return;
+
+        _vesselPreviewsLoaded = true;
+
+        if (!_resourceManager.UserData.Exists(VesselPreviewUserDataDir))
+            _resourceManager.UserData.CreateDir(VesselPreviewUserDataDir);
+
+        foreach (var vessel in _prototypeManager.EnumeratePrototypes<VesselPrototype>())
+        {
+            var fileName = $"{vessel.ID}.png";
+
+            var userPath = VesselPreviewUserDataDir / fileName;
+            if (_resourceManager.UserData.Exists(userPath))
+            {
+                using var userStream = _resourceManager.UserData.Open(userPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                _vesselPreviews[vessel.ID] = ReadAllBytes(userStream);
+                continue;
+            }
+
+            var resourcePath = VesselPreviewResourceDir / fileName;
+            if (_resourceManager.ContentFileExists(resourcePath))
+            {
+                using var resourceStream = _resourceManager.ContentFileRead(resourcePath);
+                _vesselPreviews[vessel.ID] = ReadAllBytes(resourceStream);
+            }
+        }
+
+        _sawmill.Info($"Loaded {_vesselPreviews.Count} vessel preview photos.");
+    }
+
+    private static byte[] ReadAllBytes(Stream stream)
+    {
+        using var memory = new MemoryStream();
+        stream.CopyTo(memory);
+        return memory.ToArray();
+    }
+
+    /// <summary>
+    ///     Remembers a photo for a vessel type and persists it, so later purchases (and later rounds) are instant.
+    /// </summary>
+    private void CacheVesselPreview(string vesselId, byte[] photo)
+    {
+        if (!_vesselPreviews.TryAdd(vesselId, photo))
+            return;
+
+        try
+        {
+            using var stream = _resourceManager.UserData.Open(VesselPreviewUserDataDir / $"{vesselId}.png",
+                FileMode.Create, FileAccess.Write, FileShare.None);
+            stream.Write(photo);
+        }
+        catch (Exception ex)
+        {
+            _sawmill.Warning($"Failed to persist the preview photo for {vesselId}: {ex}");
+        }
+    }
+
+    private byte[]? GetVesselPreview(string vesselId)
+    {
+        EnsureVesselPreviewsLoaded();
+        return _vesselPreviews.GetValueOrDefault(vesselId);
     }
 
     private void TryParseShuttleName(ShuttleDeedComponent deed, string name)
@@ -380,7 +509,34 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return;
         }
 
-        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed) || deed.ShuttleUid is not { Valid: true } shuttleUid)
+        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed))
+        {
+            ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
+            PlayDenySound(player, uid, component);
+            return;
+        }
+
+        EntityUid shuttleUid;
+        if (args.ShuttleUid != null && _entityManager.TryGetEntity(args.ShuttleUid.Value, out var targetShuttle) && targetShuttle != null)
+        {
+            shuttleUid = targetShuttle.Value;
+        }
+        else if (deed.ShuttleUid is { Valid: true })
+        {
+            shuttleUid = deed.ShuttleUid.Value;
+        }
+        else if (deed.OwnedShuttles.Count > 0)
+        {
+            shuttleUid = deed.OwnedShuttles.First();
+        }
+        else
+        {
+            ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
+            PlayDenySound(player, uid, component);
+            return;
+        }
+
+        if (!IsShuttleOwnedByDeed(deed, shuttleUid))
         {
             ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
             PlayDenySound(player, uid, component);
@@ -460,11 +616,29 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         // Update shuttle records
         _shuttleRecordsSystem.TrySetSaleTime(shuttleNetEntity);
 
-        RemComp<ShuttleDeedComponent>(targetId);
+        deed.OwnedShuttles.Remove(shuttleUid);
+        deed.CooldownEndTime = TimeSpan.Zero; // Cooldown is reset upon selling a shuttle!
+        ConsolePopup(player, Loc.GetString("shipyard-console-cooldown-reset"));
+
         if (TryComp<ShuttleAccessComponent>(targetId, out var targetShuttleAccess))
         {
             targetShuttleAccess.Groups.Remove(shuttleNetEntity);
             Dirty(targetId, targetShuttleAccess);
+        }
+
+        if (deed.OwnedShuttles.Count > 0)
+        {
+            deed.ShuttleUid = deed.OwnedShuttles.First();
+            if (TryComp<ShuttleDeedComponent>(deed.ShuttleUid.Value, out var nextDeed))
+            {
+                deed.ShuttleName = nextDeed.ShuttleName;
+                deed.ShuttleNameSuffix = nextDeed.ShuttleNameSuffix;
+            }
+            Dirty(targetId, deed);
+        }
+        else
+        {
+            RemComp<ShuttleDeedComponent>(targetId);
         }
 
         if (!voucherUsed)
@@ -528,7 +702,31 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return;
         }
 
-        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed) || deed.ShuttleUid is not { Valid: true } shuttleUid)
+        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed))
+        {
+            ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
+            PlayDenySound(player, uid, component);
+            return;
+        }
+
+        EntityUid? shuttleUid = null;
+        if (args.ShuttleUid != null && _entityManager.TryGetEntity(args.ShuttleUid.Value, out var resolvedUid))
+        {
+            shuttleUid = resolvedUid;
+        }
+        else if (deed.ShuttleUid is { Valid: true })
+        {
+            shuttleUid = deed.ShuttleUid;
+        }
+
+        if (shuttleUid == null || !shuttleUid.Value.Valid)
+        {
+            ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
+            PlayDenySound(player, uid, component);
+            return;
+        }
+
+        if (!IsShuttleOwnedByDeed(deed, shuttleUid.Value))
         {
             ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
             PlayDenySound(player, uid, component);
@@ -542,7 +740,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return;
         }
 
-        var storeResult = TryStoreShuttle(stationUid, shuttleUid, uid, player, targetId);
+        var storeResult = TryStoreShuttle(stationUid, shuttleUid.Value, uid, player, targetId);
         if (storeResult.Error != ShipyardStorageError.Success)
         {
             switch (storeResult.Error)
@@ -571,12 +769,180 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         PlayConfirmSound(player, uid, component);
         ConsolePopup(player, Loc.GetString("shipyard-console-storage-store-success", ("vessel", deed.ShuttleName ?? "shuttle")));
 
+        // Storing shuttle into bluespace storage resets cooldown!
+        deed.CooldownEndTime = TimeSpan.Zero;
+        Dirty(targetId, deed);
+        ConsolePopup(player, Loc.GetString("shipyard-console-cooldown-reset-stored"));
+
         if (TryComp<ActivatableUIComponent>(uid, out var uiComp) && uiComp.Key != null)
         {
             TryComp<BankAccountComponent>(player, out var bank);
             var fullName = GetFullName(deed);
             var voucherUsed = HasComp<ShipyardVoucherComponent>(targetId);
             RefreshState(uid, bank?.Balance ?? 0, true, fullName, 0, targetId, (ShipyardConsoleUiKey)uiComp.Key, voucherUsed, player);
+        }
+
+        // The shuttle is only rendered for the client that stored it, and only while this photo is being taken.
+        RequestShuttlePhoto(uid, targetId, shuttleUid.Value, player);
+    }
+
+    /// <summary>
+    ///     Forces the stored shuttle (and everything on it) to be sent to the client that stored it,
+    ///     then asks that client for a screenshot once the entities have arrived.
+    /// </summary>
+    /// <remarks>
+    ///     The shuttle already sits alone on the bluespace storage map, so the photo contains only
+    ///     the shuttle and not its surroundings.
+    /// </remarks>
+    private void RequestShuttlePhoto(EntityUid consoleUid, EntityUid targetId, EntityUid shuttleUid, EntityUid player,
+        Action? onComplete = null, bool requireStored = true)
+    {
+        if (!_player.TryGetSessionByEntity(player, out var session))
+        {
+            onComplete?.Invoke();
+            return;
+        }
+
+        _pvs.AddSessionOverride(shuttleUid, session);
+
+        var netShuttle = GetNetEntity(shuttleUid);
+        var requestId = ++_photoRequestId;
+
+        // Only the client that got the PVS override may hand in the photo.
+        _photoRequesters[netShuttle] = player;
+
+        if (onComplete != null)
+            _photoCallbacks[netShuttle] = onComplete;
+
+        // Give the client a moment to receive the grid, its entities and its tiles before asking for the photo.
+        Timer.Spawn(PhotoRequestDelay, () => SendPhotoRequest(consoleUid, targetId, shuttleUid, player, session, requestId, requireStored));
+
+        // Safety net: if the client never answers, stop sending the shuttle to it.
+        Timer.Spawn(PhotoRequestTimeout, () => FinishPhotoRequest(netShuttle, shuttleUid, session));
+    }
+
+    private void FinishPhotoRequest(NetEntity netShuttle, EntityUid shuttleUid, ICommonSession session)
+    {
+        _photoRequesters.Remove(netShuttle);
+        _pendingVesselPhotos.Remove(shuttleUid);
+
+        if (!TerminatingOrDeleted(shuttleUid))
+            _pvs.RemoveSessionOverride(shuttleUid, session);
+
+        if (_photoCallbacks.Remove(netShuttle, out var callback))
+            callback();
+    }
+
+    private void SendPhotoRequest(EntityUid consoleUid, EntityUid targetId, EntityUid shuttleUid, EntityUid player, ICommonSession session, int requestId, bool requireStored)
+    {
+        if (requestId != _photoRequestId)
+            return;
+
+        if (TerminatingOrDeleted(consoleUid) || TerminatingOrDeleted(targetId) || TerminatingOrDeleted(player) || TerminatingOrDeleted(shuttleUid))
+            return;
+
+        if (requireStored && !HasComp<ShuttleStoredInBluespaceComponent>(shuttleUid))
+            return;
+
+        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed) || !IsShuttleOwnedByDeed(deed, shuttleUid))
+            return;
+
+        if (!TryComp<ActivatableUIComponent>(consoleUid, out var uiComp) || uiComp.Key == null)
+            return;
+
+        TryComp<BankAccountComponent>(player, out var bank);
+        var voucherUsed = HasComp<ShipyardVoucherComponent>(targetId);
+        RefreshState(consoleUid, bank?.Balance ?? 0, true, GetFullName(deed), 0, targetId,
+            (ShipyardConsoleUiKey)uiComp.Key, voucherUsed, player, requestId, GetNetEntity(shuttleUid));
+    }
+
+    /// <summary>
+    ///     Docks a purchased shuttle to the station once it has been photographed.
+    /// </summary>
+    private void DeliverPurchasedShuttle(EntityUid consoleUid, EntityUid targetId, EntityUid stationUid, EntityUid shuttleUid, EntityUid player)
+    {
+        if (TerminatingOrDeleted(shuttleUid) || TerminatingOrDeleted(stationUid))
+            return;
+
+        if (!TryComp<StationDataComponent>(stationUid, out var stationData)
+            || !TryComp<ShuttleComponent>(shuttleUid, out var shuttleComponent))
+            return;
+
+        var targetGrid = _station.GetLargestGrid((stationUid, stationData));
+        if (targetGrid == null)
+            return;
+
+        _shuttle.TryFTLDock(shuttleUid, shuttleComponent, targetGrid.Value);
+
+        if (TerminatingOrDeleted(consoleUid) || TerminatingOrDeleted(targetId) || TerminatingOrDeleted(player))
+            return;
+
+        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed))
+            return;
+
+        if (!TryComp<ActivatableUIComponent>(consoleUid, out var uiComp) || uiComp.Key == null)
+            return;
+
+        TryComp<BankAccountComponent>(player, out var bank);
+        RefreshState(consoleUid, bank?.Balance ?? 0, true, GetFullName(deed), 0, targetId,
+            (ShipyardConsoleUiKey)uiComp.Key, HasComp<ShipyardVoucherComponent>(targetId), player);
+    }
+
+    /// <summary>
+    ///     Stores the photo the client took of a shuttle in bluespace storage (or of a freshly purchased one).
+    /// </summary>
+    private void OnShuttlePhotoMessage(EntityUid uid, ShipyardConsoleComponent component, ShipyardShuttlePhotoMessage args)
+    {
+        if (args.Actor is not { Valid: true } player)
+            return;
+
+        if (component.TargetIdSlot.ContainerSlot?.ContainedEntity is not { Valid: true } targetId)
+            return;
+
+        if (!TryComp<ShuttleDeedComponent>(targetId, out var deed))
+            return;
+
+        if (!TryGetEntity(args.ShuttleUid, out var shuttleUid) || !shuttleUid.Value.Valid)
+            return;
+
+        if (!IsShuttleOwnedByDeed(deed, shuttleUid.Value))
+            return;
+
+        if (!_photoRequesters.TryGetValue(args.ShuttleUid, out var requester) || requester != player)
+            return;
+
+        if (args.PhotoData.Length == 0 || args.PhotoData.Length > MaxShuttlePhotoSize)
+            return;
+
+        if (TryComp<ShuttleStoredInBluespaceComponent>(shuttleUid.Value, out var stored))
+        {
+            stored.PhotoData = args.PhotoData;
+            Dirty(shuttleUid.Value, stored);
+        }
+
+        if (TryComp<ShuttleDeedComponent>(shuttleUid.Value, out var deedShuttle))
+        {
+            deedShuttle.PhotoData = args.PhotoData;
+            Dirty(shuttleUid.Value, deedShuttle);
+        }
+
+        if (deed.ShuttleUid == shuttleUid.Value)
+            deed.PhotoData = args.PhotoData;
+
+        Dirty(targetId, deed);
+
+        // Remember the photo for this vessel type so every other copy is photographed instantly.
+        if (_pendingVesselPhotos.Remove(shuttleUid.Value, out var vesselId))
+            CacheVesselPreview(vesselId, args.PhotoData);
+
+        if (_player.TryGetSessionByEntity(player, out var session))
+            FinishPhotoRequest(args.ShuttleUid, shuttleUid.Value, session);
+
+        if (TryComp<ActivatableUIComponent>(uid, out var uiComp) && uiComp.Key != null)
+        {
+            TryComp<BankAccountComponent>(player, out var bank);
+            RefreshState(uid, bank?.Balance ?? 0, true, GetFullName(deed), 0, targetId,
+                (ShipyardConsoleUiKey)uiComp.Key, HasComp<ShipyardVoucherComponent>(targetId), player);
         }
     }
 
@@ -599,17 +965,36 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             return;
         }
 
+        if (TryComp<ShuttleDeedComponent>(targetId, out var deed))
+        {
+            if (deed.CooldownEndTime > _timing.CurTime)
+            {
+                var remaining = deed.CooldownEndTime - _timing.CurTime;
+                var minutes = Math.Max(1, (int)Math.Ceiling(remaining.TotalMinutes));
+                ConsolePopup(player, Loc.GetString("shipyard-console-cooldown-active", ("minutes", minutes)));
+                PlayDenySound(player, uid, component);
+                return;
+            }
+        }
+
         EntityUid? shuttleUid = null;
         if (args.ShuttleUid != null && _entityManager.TryGetEntity(args.ShuttleUid.Value, out var resolvedUid))
         {
             shuttleUid = resolvedUid;
         }
-        else if (TryComp<ShuttleDeedComponent>(targetId, out var deed) && deed.ShuttleUid is { Valid: true })
+        else if (deed != null && deed.ShuttleUid is { Valid: true })
         {
             shuttleUid = deed.ShuttleUid;
         }
 
         if (shuttleUid == null || !shuttleUid.Value.Valid)
+        {
+            ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
+            PlayDenySound(player, uid, component);
+            return;
+        }
+
+        if (deed == null || !IsShuttleOwnedByDeed(deed, shuttleUid.Value))
         {
             ConsolePopup(player, Loc.GetString("shipyard-console-no-deed"));
             PlayDenySound(player, uid, component);
@@ -649,6 +1034,13 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         else
             ConsolePopup(player, Loc.GetString("shipyard-console-storage-recall-success-proximity"));
 
+        // Recalling a shuttle applies cooldown if owner has multiple shuttles
+        if (deed != null && deed.OwnedShuttles.Count >= 2)
+        {
+            deed.CooldownEndTime = _timing.CurTime + deed.CooldownDuration;
+            Dirty(targetId, deed);
+        }
+
         if (TryComp<ActivatableUIComponent>(uid, out var uiComp) && uiComp.Key != null)
         {
             TryComp<BankAccountComponent>(player, out var bank);
@@ -668,6 +1060,9 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     {
         if (!component.Initialized)
             return;
+
+        // Warm the vessel photo cache as soon as a shipyard console is used.
+        EnsureVesselPreviewsLoaded();
 
         // kind of cursed. We need to update the UI when an Id is entered, but the UI needs to know the player characters bank account.
         if (!TryComp<ActivatableUIComponent>(uid, out var uiComp) || uiComp.Key == null)
@@ -985,12 +1380,14 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             .ToList();
     }
 
-    private void RefreshState(EntityUid uid, int balance, bool access, string? shipDeed, int shipSellValue, EntityUid? targetId, ShipyardConsoleUiKey uiKey, bool freeListings, EntityUid? player = null)
+    private void RefreshState(EntityUid uid, int balance, bool access, string? shipDeed, int shipSellValue, EntityUid? targetId, ShipyardConsoleUiKey uiKey, bool freeListings, EntityUid? player = null, int photoRequestId = 0, NetEntity? photoRequestShuttle = null)
     {
         bool hasCaptainAccess = (targetId != null && HasCaptainAccess(targetId.Value)) || (player != null && HasCaptainAccess(player.Value));
         bool isShipStored = false;
         bool canStoreShip = false;
         bool canRecallShip = false;
+        TimeSpan cooldownEndTime = TimeSpan.Zero;
+        List<PlayerShuttleInfo> playerShuttles = new();
 
         List<StoredShuttleInfo> storedShuttles = new();
         if (BluespaceStorageMap != null)
@@ -1005,11 +1402,66 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             }
         }
 
-        if (targetId != null && TryComp<ShuttleDeedComponent>(targetId, out var deed) && deed.ShuttleUid is { Valid: true } shuttleUid)
+        var owningStation = _station.GetOwningStation(uid);
+        var stationGrid = owningStation != null ? _station.GetLargestGrid(owningStation.Value) : null;
+
+        if (targetId != null && TryComp<ShuttleDeedComponent>(targetId, out var deed))
         {
-            isShipStored = HasComp<ShuttleStoredInBluespaceComponent>(shuttleUid);
-            canStoreShip = hasCaptainAccess && !isShipStored;
-            canRecallShip = hasCaptainAccess && isShipStored;
+            cooldownEndTime = deed.CooldownEndTime;
+            bool isOnCooldown = cooldownEndTime > _timing.CurTime;
+
+            var shuttlesToCheck = new HashSet<EntityUid>(deed.OwnedShuttles);
+            if (deed.ShuttleUid is { Valid: true })
+                shuttlesToCheck.Add(deed.ShuttleUid.Value);
+
+            foreach (var sUid in shuttlesToCheck)
+            {
+                if (Deleted(sUid))
+                    continue;
+
+                string sName = "Unknown";
+                string? sBaseName = null;
+                byte[]? sPhotoData = null;
+
+                if (TryComp<ShuttleStoredInBluespaceComponent>(sUid, out var storedComp) && storedComp.PhotoData != null)
+                {
+                    sPhotoData = storedComp.PhotoData;
+                }
+                if (TryComp<ShuttleDeedComponent>(sUid, out var sDeed))
+                {
+                    sName = GetFullName(sDeed);
+                    sBaseName = sDeed.ShuttleName;
+                    sPhotoData ??= sDeed.PhotoData;
+                }
+                else if (TryComp<MetaDataComponent>(sUid, out var sMeta))
+                {
+                    sName = sMeta.EntityName;
+                    sBaseName = sMeta.EntityName;
+                }
+
+                bool sStored = HasComp<ShuttleStoredInBluespaceComponent>(sUid);
+                bool sDocked = stationGrid != null && IsShuttleDocked(sUid, stationGrid.Value);
+                bool sCanStore = hasCaptainAccess && sDocked && !sStored;
+                bool sCanRecall = hasCaptainAccess && sStored && !isOnCooldown;
+
+                playerShuttles.Add(new PlayerShuttleInfo(
+                    _entityManager.GetNetEntity(sUid),
+                    sName,
+                    sBaseName,
+                    sStored,
+                    sDocked,
+                    sCanStore,
+                    sCanRecall,
+                    sPhotoData
+                ));
+            }
+
+            if (deed.ShuttleUid is { Valid: true } shuttleUid)
+            {
+                isShipStored = HasComp<ShuttleStoredInBluespaceComponent>(shuttleUid);
+                canStoreShip = hasCaptainAccess && !isShipStored;
+                canRecallShip = hasCaptainAccess && isShipStored && !isOnCooldown;
+            }
         }
 
         var newState = new ShipyardConsoleInterfaceState(
@@ -1028,7 +1480,11 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             canStoreShip,
             canRecallShip,
             hasCaptainAccess,
-            storedShuttles);
+            storedShuttles,
+            cooldownEndTime,
+            playerShuttles,
+            photoRequestId,
+            photoRequestShuttle);
 
         _ui.SetUiState(uid, uiKey, newState);
     }

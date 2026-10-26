@@ -1,0 +1,32 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      SetSize="740 560"
+                      MinSize="650 480">
+    <BoxContainer Orientation="Vertical" Margin="10 6 10 10">
+        <!-- Top Info Header: Cooldown & Status -->
+        <BoxContainer Orientation="Horizontal" Margin="0 0 0 10" HorizontalExpand="True">
+            <BoxContainer Orientation="Horizontal" HorizontalExpand="True">
+                <Label Text="{Loc 'shipyard-bluespace-menu-cooldown-label'}" StyleClasses="LabelKeyText"/>
+                <Label Name="CooldownLabel" Text="{Loc 'shipyard-bluespace-menu-cooldown-ready'}" Margin="6 0 0 0"/>
+            </BoxContainer>
+            <Label Name="ShuttleCountLabel" StyleClasses="LabelSubText" HorizontalAlignment="Right"/>
+        </BoxContainer>
+
+        <!-- No Shuttles Notice (hidden when shuttles exist) -->
+        <Label Name="NoShuttlesNotice"
+               Text="{Loc 'shipyard-bluespace-menu-no-shuttles'}"
+               Visible="False"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Margin="0 40 0 0"/>
+
+        <!-- Grid of Shuttle Cards -->
+        <ScrollContainer Name="CardsScrollContainer" HorizontalExpand="True" VerticalExpand="True" Visible="True">
+            <GridContainer Name="ShuttleGridContainer"
+                           Columns="2"
+                           HorizontalExpand="True">
+                <!-- Shuttle cards dynamically added here -->
+            </GridContainer>
+        </ScrollContainer>
+    </BoxContainer>
+</controls:FancyWindow>

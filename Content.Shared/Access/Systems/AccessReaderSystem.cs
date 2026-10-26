@@ -256,7 +256,7 @@ public sealed class AccessReaderSystem : EntitySystem
                 }
 
                 if (TryComp<ShuttleDeedComponent>(item, out var cardDeed) &&
-                    cardDeed.ShuttleUid == shuttleGridUid)
+                    (cardDeed.ShuttleUid == shuttleGridUid || cardDeed.OwnedShuttles.Contains(shuttleGridUid)))
                 {
                     return true;
                 }

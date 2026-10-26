@@ -1,0 +1,11 @@
+job-supervisors-sr = представник станції
+job-supervisors-bailiff = судовий пристав
+job-supervisors-cadet = увесь старший персонал СБ Frontier
+job-supervisors-freebooters-union = Спілка вільних піратів
+job-supervisors-nf-pirate = перший помічник і капітан
+job-supervisors-nf-pirate-captain = капітан
+job-supervisors-nfsd = заступники, судовий пристав і шериф
+job-supervisors-plant-manager = керівник електростанції
+job-supervisors-prisoner = увесь персонал СБ Frontier
+job-supervisors-sergeant = сержант
+job-supervisors-sheriff = шериф

@@ -18,6 +18,31 @@ public sealed class StoredShuttleInfo
 }
 
 [NetSerializable, Serializable]
+public sealed class PlayerShuttleInfo
+{
+    public readonly NetEntity ShuttleUid;
+    public readonly string ShuttleName;
+    public readonly string? BaseName;
+    public readonly bool IsStored;
+    public readonly bool IsDocked;
+    public readonly bool CanStore;
+    public readonly bool CanRecall;
+    public readonly byte[]? PhotoData;
+
+    public PlayerShuttleInfo(NetEntity shuttleUid, string shuttleName, string? baseName, bool isStored, bool isDocked, bool canStore, bool canRecall, byte[]? photoData = null)
+    {
+        ShuttleUid = shuttleUid;
+        ShuttleName = shuttleName;
+        BaseName = baseName;
+        IsStored = isStored;
+        IsDocked = isDocked;
+        CanStore = canStore;
+        CanRecall = canRecall;
+        PhotoData = photoData;
+    }
+}
+
+[NetSerializable, Serializable]
 public sealed class ShipyardConsoleInterfaceState : BoundUserInterfaceState
 {
     public int Balance;
@@ -39,6 +64,10 @@ public sealed class ShipyardConsoleInterfaceState : BoundUserInterfaceState
     public readonly bool CanRecallShip;
     public readonly bool HasCaptainAccess;
     public readonly List<StoredShuttleInfo> StoredShuttles;
+    public readonly TimeSpan CooldownEndTime;
+    public readonly List<PlayerShuttleInfo> PlayerShuttles;
+    public readonly int PhotoRequestId;
+    public readonly NetEntity? PhotoRequestShuttle;
 
     public ShipyardConsoleInterfaceState(
         int balance,
@@ -56,7 +85,11 @@ public sealed class ShipyardConsoleInterfaceState : BoundUserInterfaceState
         bool canStoreShip = false,
         bool canRecallShip = false,
         bool hasCaptainAccess = false,
-        List<StoredShuttleInfo>? storedShuttles = null)
+        List<StoredShuttleInfo>? storedShuttles = null,
+        TimeSpan cooldownEndTime = default,
+        List<PlayerShuttleInfo>? playerShuttles = null,
+        int photoRequestId = 0,
+        NetEntity? photoRequestShuttle = null)
     {
         Balance = balance;
         AccessGranted = accessGranted;
@@ -74,5 +107,9 @@ public sealed class ShipyardConsoleInterfaceState : BoundUserInterfaceState
         CanRecallShip = canRecallShip;
         HasCaptainAccess = hasCaptainAccess;
         StoredShuttles = storedShuttles ?? new();
+        CooldownEndTime = cooldownEndTime;
+        PlayerShuttles = playerShuttles ?? new();
+        PhotoRequestId = photoRequestId;
+        PhotoRequestShuttle = photoRequestShuttle;
     }
 }

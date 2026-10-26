@@ -286,7 +286,7 @@ public sealed class AccessOverriderSystem : SharedAccessOverriderSystem
                 // If the player/card is the registered owner of this shuttle, or has deed for this shuttle:
                 if ((actor != null && _shuttleDeed.IsShuttleOwner(targetGrid.Value, actor.Value)) ||
                     _shuttleDeed.IsShuttleOwner(targetGrid.Value, privilegedId) ||
-                    (TryComp<ShuttleDeedComponent>(privilegedId, out var cardDeed) && cardDeed.ShuttleUid == targetGrid) ||
+                    (TryComp<ShuttleDeedComponent>(privilegedId, out var cardDeed) && (cardDeed.ShuttleUid == targetGrid || cardDeed.OwnedShuttles.Contains(targetGrid.Value))) ||
                     (TryComp<IdCardComponent>(privilegedId, out var idCard) && !string.IsNullOrEmpty(idCard.FullName) && idCard.FullName == deed.ShuttleOwner))
                 {
                     return component.AccessLevels.ToHashSet();

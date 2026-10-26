@@ -16,10 +16,15 @@ using Content.Shared._NF.Shipyard.Components;
 using Content.Shared._NF.Shipyard.Events;
 using Content.Shared._NF.Shipyard;
 using Robust.Server.GameObjects;
+using Robust.Server.GameStates;
+using Robust.Server.Player;
 using Robust.Shared.Configuration;
 using Robust.Shared.Containers;
 using Robust.Shared.EntitySerialization.Systems;
 using Robust.Shared.Map;
+using Robust.Shared.Physics.Components;
+using Robust.Shared.Physics.Systems;
+using Robust.Shared.Player;
 using Robust.Shared.Utility;
 
 
@@ -37,6 +42,8 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     [Dependency] private readonly MapSystem _map = default!;
     [Dependency] private readonly SharedTransformSystem _transform = default!;
     [Dependency] private readonly AtmosphereSystem _atmosphere = default!;
+    [Dependency] private readonly SharedPhysicsSystem _physics = default!;
+    [Dependency] private readonly PvsOverrideSystem _pvs = default!;
 
     public MapId? ShipyardMap { get; private set; }
     private float _shuttleIndex;
@@ -47,6 +54,24 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
 
     public MapId? BluespaceStorageMap { get; private set; }
     private float _storageIndex;
+
+    /// <summary>
+    ///     Delay between forcing a shuttle into a client's PVS and asking that client for a photo. The client
+    ///     retries until the shuttle is loaded, so this only has to give the PVS a head start.
+    /// </summary>
+    private static readonly TimeSpan PhotoRequestDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    ///     How long to keep the shuttle force-sent to the client while waiting for the photo before giving up.
+    /// </summary>
+    private static readonly TimeSpan PhotoRequestTimeout = TimeSpan.FromSeconds(6);
+
+    /// <summary>
+    ///     Upper bound for a shuttle photo sent by a client, to keep broken or malicious payloads out.
+    /// </summary>
+    private const int MaxShuttlePhotoSize = 512 * 1024;
+
+    private int _photoRequestId;
 
     // The type of error from the attempted sale of a ship.
     public enum ShipyardSaleError
@@ -111,6 +136,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleSellMessage>(OnSellMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsolePurchaseMessage>(OnPurchaseMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleStoreMessage>(OnStoreMessage);
+        SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardShuttlePhotoMessage>(OnShuttlePhotoMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleRecallMessage>(OnRecallMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntInsertedIntoContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntRemovedFromContainerMessage>(OnItemSlotChanged);
@@ -154,7 +180,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     }
 
     /// <summary>
-    /// Adds a ship to the shipyard, calculates its price, and attempts to ftl-dock it to the given station
+    /// Adds a ship to the shipyard, calculates its price, and ftl-docks it to the given station.
     /// </summary>
     /// <param name="stationUid">The ID of the station to dock the shuttle to</param>
     /// <param name="shuttlePath">The path to the shuttle file to load. Must be a grid file!</param>
@@ -163,7 +189,11 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
     ///     An atmosphere prototype to fill the shuttle with. Will use the grid-defined atmosphere if <c>null</c>.
     ///     Ignored unless <see cref="NFCCVars.ShipyardCustomAtmos"/> is <c>true</c>.
     /// </param>
-    public bool TryPurchaseShuttle(EntityUid stationUid, ResPath shuttlePath, [NotNullWhen(true)] out EntityUid? shuttleEntityUid, ShuttleAtmospherePrototype? atmos = null)
+    /// <param name="dockToStation">
+    ///     Whether to dock the shuttle to the station immediately. When <c>false</c> the shuttle stays alone on the
+    ///     shipyard map so the client can photograph it without any station geometry in the background.
+    /// </param>
+    public bool TryPurchaseShuttle(EntityUid stationUid, ResPath shuttlePath, [NotNullWhen(true)] out EntityUid? shuttleEntityUid, ShuttleAtmospherePrototype? atmos = null, bool dockToStation = true)
     {
         if (!TryComp<StationDataComponent>(stationUid, out var stationData)
             || !TryAddShuttle(shuttlePath, out var shuttleGrid)
@@ -190,8 +220,11 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         }
 
         _sawmill.Info($"Shuttle {shuttlePath} was purchased at {ToPrettyString(stationUid)} for {price:f2}");
-        //can do TryFTLDock later instead if we need to keep the shipyard map paused
-        _shuttle.TryFTLDock(shuttleGrid.Value, shuttleComponent, targetGrid.Value);
+
+        // If this vessel still needs a photo, the caller keeps it on the shipyard map until the photo is taken.
+        if (dockToStation)
+            _shuttle.TryFTLDock(shuttleGrid.Value, shuttleComponent, targetGrid.Value);
+
         shuttleEntityUid = shuttleGrid;
         return true;
     }
@@ -460,6 +493,18 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         return HasCaptainAccess(player);
     }
 
+    /// <summary>
+    /// Checks whether the given shuttle belongs to the deed stored on the console's ID card.
+    /// Shuttles referenced by UI messages must always be validated with this before use.
+    /// </summary>
+    public bool IsShuttleOwnedByDeed(ShuttleDeedComponent deed, EntityUid shuttleUid)
+    {
+        if (deed.ShuttleUid == shuttleUid)
+            return true;
+
+        return deed.OwnedShuttles.Contains(shuttleUid);
+    }
+
     public ShipyardStorageResult TryStoreShuttle(EntityUid stationUid, EntityUid shuttleUid, EntityUid consoleUid, EntityUid playerUid, EntityUid targetId)
     {
         ShipyardStorageResult result = new();
@@ -517,10 +562,25 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             }
         }
 
-        SetupBluespaceStorageIfNeeded();
-        var storageMapUid = _map.GetMap(BluespaceStorageMap!.Value);
-        _storageIndex += 1000f;
-        _transform.SetCoordinates(shuttleUid, new EntityCoordinates(storageMapUid, new Vector2(_storageIndex, 0)));
+        if (TryComp<PhysicsComponent>(shuttleUid, out var physics))
+        {
+            _physics.SetLinearVelocity(shuttleUid, Vector2.Zero, body: physics);
+            _physics.SetAngularVelocity(shuttleUid, 0f, body: physics);
+        }
+
+        try
+        {
+            SetupBluespaceStorageIfNeeded();
+            var storageMapUid = _map.GetMap(BluespaceStorageMap!.Value);
+            _storageIndex += 1000f;
+            _transform.SetCoordinates(shuttleUid, new EntityCoordinates(storageMapUid, new Vector2(_storageIndex, 0)));
+        }
+        catch (Exception ex)
+        {
+            _sawmill.Error($"Failed to move shuttle {shuttleUid} to bluespace storage map: {ex}");
+            result.Error = ShipyardStorageError.InvalidShip;
+            return result;
+        }
 
         var stored = EnsureComp<ShuttleStoredInBluespaceComponent>(shuttleUid);
         stored.StoredTime = _timing.CurTime;

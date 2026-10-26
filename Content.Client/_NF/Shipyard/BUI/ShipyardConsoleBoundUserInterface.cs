@@ -12,6 +12,7 @@ namespace Content.Client._NF.Shipyard.BUI;
 public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
 {
     private ShipyardConsoleMenu? _menu;
+    private ShipyardBluespaceMenu? _bluespaceMenu;
     // private ShipyardRulesPopup? _rulesWindow; // Frontier
     public int Balance { get; private set; }
 
@@ -31,6 +32,9 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
             _menu.OnSellShip += SellShip;
             _menu.OnStoreShip += StoreShip;
             _menu.OnRecallShip += RecallShip;
+            _menu.OnOpenBluespaceMenu += OpenBluespaceMenu;
+            _menu.OnPhotoCaptured += OnPhotoCaptured;
+            _menu.OnClose += () => _bluespaceMenu?.Close();
             _menu.TargetIdButton.OnPressed += _ => SendMessage(new ItemSlotButtonPressedEvent("ShipyardConsole-targetId"));
 
             // Disable the NFSD popup for now.
@@ -77,6 +81,40 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
             cState.AtmosPrototypes
         );
         _menu?.UpdateState(cState);
+        _bluespaceMenu?.UpdateState(cState);
+    }
+
+    private void OpenBluespaceMenu(ButtonEventArgs args)
+    {
+        if (_bluespaceMenu == null)
+        {
+            _bluespaceMenu = new ShipyardBluespaceMenu();
+            _bluespaceMenu.OnStoreRequested += uid => SendMessage(new ShipyardConsoleStoreMessage(uid));
+            _bluespaceMenu.OnRecallRequested += uid => SendMessage(new ShipyardConsoleRecallMessage(uid));
+        }
+
+        _bluespaceMenu.OpenCentered();
+        if (State is ShipyardConsoleInterfaceState cState)
+        {
+            _bluespaceMenu.UpdateState(cState);
+        }
+    }
+
+    private void OnPhotoCaptured(NetEntity shuttleUid, byte[]? photo)
+    {
+        if (photo is { Length: > 0 })
+            SendMessage(new ShipyardShuttlePhotoMessage(shuttleUid, photo));
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _bluespaceMenu?.Close();
+            _bluespaceMenu = null;
+        }
+
+        base.Dispose(disposing);
     }
 
     private void ApproveOrder(ShipyardConsoleMenu.OrderApprovedEventArgs args)
@@ -91,7 +129,10 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
 
     private void StoreShip(ButtonEventArgs args)
     {
-        SendMessage(new ShipyardConsoleStoreMessage());
+        // A photo can only be captured from a rendered viewport, so storage is routed through the
+        // bluespace storage menu: it owns the capture viewport and lets the player pick which of
+        // their docked shuttles to store.
+        OpenBluespaceMenu(args);
     }
 
     private void RecallShip(ButtonEventArgs args)

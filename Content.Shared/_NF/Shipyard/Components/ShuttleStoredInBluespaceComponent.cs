@@ -16,4 +16,7 @@ public sealed partial class ShuttleStoredInBluespaceComponent : Component
 
     [DataField, AutoNetworkedField]
     public string? StoredBy;
+
+    [DataField, AutoNetworkedField]
+    public byte[]? PhotoData;
 }

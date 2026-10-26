@@ -8,7 +8,10 @@ namespace Content.Shared._NF.Shipyard.Events;
 [Serializable, NetSerializable]
 public sealed class ShipyardConsoleSellMessage : BoundUserInterfaceMessage
 {
-    public ShipyardConsoleSellMessage()
+    public readonly NetEntity? ShuttleUid;
+
+    public ShipyardConsoleSellMessage(NetEntity? shuttleUid = null)
     {
+        ShuttleUid = shuttleUid;
     }
 }

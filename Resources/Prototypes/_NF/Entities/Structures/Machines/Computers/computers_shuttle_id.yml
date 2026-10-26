@@ -9,7 +9,7 @@
     - map: ["computerLayerBody"]
       state: computer
     - map: ["computerLayerKeyboard"]
-      state: id_keyboard
+      state: generic_keyboard
     - map: ["computerLayerScreen"]
       state: id
     - map: ["computerLayerKeys"]

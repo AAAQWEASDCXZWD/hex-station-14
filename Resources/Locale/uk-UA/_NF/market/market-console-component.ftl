@@ -1,0 +1,19 @@
+# Консоль доступу до ринку
+market-console-menu-title = Термінал доступу до ринку
+market-item-title = Предмет
+market-all = Усе
+market-purchase = Придбати
+market-quantity-title = Кількість
+market-quantity-available = Доступно: {$quantity}
+market-purchase-cart-button = Придбати кошик: {$cost}
+market-price = Ціна
+market-bank-balance = Баланс рахунку:{" "}
+market-cart-balance = {$cost} (+{$cratecost} за обробку)
+market-price-each = {$total} (по {$unitPrice} за одиницю)
+market-cart-prefix = Кошик:{" "}
+market-no-bank-found = Банківський рахунок не знайдено.
+market-return-button = Вилучити
+market-search = Шукати предмети:
+market-no-crate-machine-available = Немає доступних машин для ящиків
+market-insufficient-funds = Недостатньо коштів
+market-item-count = {$count}/{$capacity}

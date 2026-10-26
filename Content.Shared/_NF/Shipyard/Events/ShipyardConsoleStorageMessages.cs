@@ -8,8 +8,27 @@ namespace Content.Shared._NF.Shipyard.Events;
 [Serializable, NetSerializable]
 public sealed class ShipyardConsoleStoreMessage : BoundUserInterfaceMessage
 {
-    public ShipyardConsoleStoreMessage()
+    public readonly NetEntity? ShuttleUid;
+
+    public ShipyardConsoleStoreMessage(NetEntity? shuttleUid = null)
     {
+        ShuttleUid = shuttleUid;
+    }
+}
+
+/// <summary>
+///     Sent by the client with the photo it captured of a shuttle after the server requested one.
+/// </summary>
+[Serializable, NetSerializable]
+public sealed class ShipyardShuttlePhotoMessage : BoundUserInterfaceMessage
+{
+    public readonly NetEntity ShuttleUid;
+    public readonly byte[] PhotoData;
+
+    public ShipyardShuttlePhotoMessage(NetEntity shuttleUid, byte[] photoData)
+    {
+        ShuttleUid = shuttleUid;
+        PhotoData = photoData;
     }
 }
 

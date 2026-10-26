@@ -106,3 +106,27 @@ shipyard-console-storage-recall-success-docked = Shuttle successfully recalled a
 shipyard-console-storage-recall-success-proximity = Shuttle successfully recalled near the station.
 shipyard-console-storage-cannot-sell-stored = Cannot sell shuttle while stored in bluespace. Recall it first.
 
+# Bluespace Storage Menu
+shipyard-console-menu-open-storage-button = Bluespace Storage
+shipyard-bluespace-menu-title = Bluespace Shuttle Storage
+shipyard-bluespace-menu-cooldown-label = Cooldown:
+shipyard-bluespace-menu-no-shuttles = No registered shuttles found on this ID card.
+shipyard-bluespace-menu-column-name = Shuttle Name
+shipyard-bluespace-menu-column-status = Status
+shipyard-bluespace-menu-column-action = Action
+shipyard-bluespace-menu-status-stored = In Storage
+shipyard-bluespace-menu-status-docked = Docked
+shipyard-bluespace-menu-status-undocked = In Flight
+shipyard-bluespace-menu-button-recall = Retrieve
+shipyard-bluespace-menu-button-store = Store
+shipyard-bluespace-menu-cooldown-active = Active ({$time})
+shipyard-bluespace-menu-cooldown-ready = Ready
+shipyard-console-cooldown-active = Cooldown active! Please wait {$minutes} min.
+shipyard-console-cooldown-reset = Cooldown reset after shuttle sale.
+shipyard-console-cooldown-reset-stored = Cooldown reset after storing shuttle in bluespace.
+shipyard-bluespace-menu-shuttle-count = Owned shuttles: {$count}
+shipyard-bluespace-menu-no-preview = No preview available
+shipyard-bluespace-menu-undocked-info = Undocked from station
+
+
+

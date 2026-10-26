@@ -1,0 +1,20 @@
+advertisement-fuelvend-1 = ЗАПРАВ КОСМІЧНИЙ КОРАБЕЛЬ РАКЕТНИМ ПАЛИВОМ!
+advertisement-fuelvend-2 = Поспішаєш? Заправся!
+advertisement-fuelvend-3 = Нашим цінам важко повірити — і вони цілком законні!
+advertisement-fuelvend-4 = Давно перевіряв заправки?
+advertisement-fuelvend-5 = Вирушаєш? Заправся!
+advertisement-fuelvend-6 = Заправляйся! Без вугілля з 2520 року.
+advertisement-fuelvend-7 = ГАЗ, ГАЗ, ГАЗ!
+advertisement-fuelvend-8 = Плазма? Уран? ДРА? У нас усе є.
+advertisement-fuelvend-9 = Потрібна енергія, а часу немає? Купуй пальне!
+advertisement-fuelvend-10 = Місцеве виробництво? Ха. Бери пальне.
+advertisement-fuelvend-11 = Генератор працює? Краще піди й заправ його!
+advertisement-fuelvend-12 = Що з антиматерією? Пального немає?
+
+goodbye-fuelvend-1 = Ще один незадоволений клієнт.
+goodbye-fuelvend-2 = Ще повернешся.
+goodbye-fuelvend-3 = Провалюй, не марнуй мій час.
+goodbye-fuelvend-4 = Дивись, щоб шлюз не врізався тобі в спину.
+goodbye-fuelvend-5 = Удачі там, невдахо.
+goodbye-fuelvend-6 = Ага-ага, забирайся.
+goodbye-fuelvend-7 = Ти ще тут? Хм.

@@ -1,0 +1,20 @@
+advertisement-posterpressvend-1 = Кажуть, мистецтво безцінне. Дозволь не погодитися.
+advertisement-posterpressvend-2 = Гроші — тимчасові. Мистецтво — вічне.
+advertisement-posterpressvend-3 = Найкращий спосіб приховати справжні статки.
+advertisement-posterpressvend-4 = Голі стіни — ознака депресії.
+advertisement-posterpressvend-5 = Самовираження не придушити!
+advertisement-posterpressvend-6 = Найкраще мистецтво в секторі!
+advertisement-posterpressvend-7 = Плакати — те, чого бракує відсікам шатла.
+advertisement-posterpressvend-8 = Не розумію сучасного мистецтва. Помилка в моєму програмуванні.
+advertisement-posterpressvend-9 = Чудовий спосіб приховати свої таємні двері!
+advertisement-posterpressvend-10 = Кажуть, мистецтво — найкращий спосіб самовираження, якщо ти не мім.
+advertisement-posterpressvend-11 = У мене немає рук, але я мушу малювати.
+advertisement-posterpressvend-12 = Щоб по-справжньому оцінити цей витвір, треба нахилити голову набік і примружитися.
+
+goodbye-posterpressvend-1 = Ого. Ти й справді це купив?
+goodbye-posterpressvend-2 = *клацає язиком* Гарно!
+goodbye-posterpressvend-3 = Ну так, це... вибір.
+goodbye-posterpressvend-4 = Гарний вибір!
+goodbye-posterpressvend-5 = Знаєш, що краще за один витвір мистецтва? Два витвори мистецтва!
+goodbye-posterpressvend-6 = Гаразд.
+goodbye-posterpressvend-7 = Повернення коштів немає.
