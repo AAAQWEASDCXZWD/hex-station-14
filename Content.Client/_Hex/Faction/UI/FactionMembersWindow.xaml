@@ -1,0 +1,14 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      SetSize="420 420"
+                      MinSize="360 320">
+    <BoxContainer Orientation="Vertical" Margin="10" SeparationOverride="8">
+        <Label Text="{Loc 'faction-members-title'}" StyleClasses="LabelBig"/>
+        <ScrollContainer HorizontalExpand="True" VerticalExpand="True">
+            <BoxContainer Name="MembersContainer"
+                          Orientation="Vertical"
+                          HorizontalExpand="True"
+                          SeparationOverride="2"/>
+        </ScrollContainer>
+    </BoxContainer>
+</controls:FancyWindow>

@@ -854,6 +854,20 @@ namespace Content.Server.Database.Migrations.Postgres
                         .HasColumnType("text")
                         .HasColumnName("facial_hair_name");
 
+                    b.Property<string>("FactionId")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("faction_id");
+
+                    b.Property<string>("FactionName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("faction_name");
+
+                    b.Property<int>("FactionRole")
+                        .HasColumnType("integer")
+                        .HasColumnName("faction_role");
+
                     b.Property<string>("FlavorText")
                         .IsRequired()
                         .HasColumnType("text")

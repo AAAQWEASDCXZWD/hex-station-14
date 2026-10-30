@@ -1,0 +1,7 @@
+Enrollment_ID,User_ID,Course_ID,User_Email,Application_Date,Status,Payment_Status,Notes
+ENR-001,USR-001,CRS-001,ivan.petrenko@gmail.com,2026-10-10,Confirmed,Paid,Цікавить вечірня група
+ENR-002,USR-002,CRS-003,olena.kravchuk@gmail.com,2026-10-12,Confirmed,Paid,Маю базовий досвід у Photoshop
+ENR-003,USR-003,CRS-002,m.vasylenko@gmail.com,2026-10-15,Pending,Unpaid,Хочу отримати консультацію щодо розстрочки
+ENR-004,USR-004,CRS-004,anna.moroz@gmail.com,2026-10-18,Confirmed,Paid,Планую зміну професії (світчинг)
+ENR-005,USR-005,CRS-005,bogdan.tkach@gmail.com,2026-10-20,Pending,Unpaid,Є досвід Linux адміністрування
+ENR-006,USR-001,CRS-007,ivan.petrenko@gmail.com,2026-10-22,Pending,Unpaid,Додатковий курс для мобільної розробки

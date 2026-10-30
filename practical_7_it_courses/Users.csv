@@ -1,0 +1,6 @@
+User_ID,Full_Name,Email,Phone,Role,Avatar_URL
+USR-001,Іван Петренко,ivan.petrenko@gmail.com,+380501234567,Student,https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=400&auto=format&fit=crop
+USR-002,Олена Кравчук,olena.kravchuk@gmail.com,+380672345678,Student,https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop
+USR-003,Максим Василенко,m.vasylenko@gmail.com,+380933456789,Student,https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=400&auto=format&fit=crop
+USR-004,Анна Мороз,anna.moroz@gmail.com,+380954567890,Student,https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop
+USR-005,Богдан Ткаченко,bogdan.tkach@gmail.com,+380635678901,Student,https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop

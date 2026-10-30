@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Content.Server.Database;
+using Content.Shared._Hex.Faction;
 using Content.Shared._NF.CCVar;
 using Content.Shared.CCVar;
 using Content.Shared.Construction.Prototypes;
@@ -120,6 +121,18 @@ namespace Content.Server.Preferences.Managers
                         _sawmill.Info($"{session.Name} has tried to modify a character's money (expected: {humanoidEditingTarget.BankBalance} requested: {humanProfile.BankBalance}). They may be using a modified client!");
                         profile = humanProfile.WithBankBalance(humanoidEditingTarget.BankBalance);
                     }
+
+                    // Faction membership is server-owned: a client may not create or change it.
+                    if (humanProfile.FactionId != humanoidEditingTarget.FactionId ||
+                        humanProfile.FactionName != humanoidEditingTarget.FactionName ||
+                        humanProfile.FactionRank != humanoidEditingTarget.FactionRank)
+                    {
+                        _sawmill.Info($"{session.Name} has tried to modify a character's faction (expected: {humanoidEditingTarget.FactionId}/{humanoidEditingTarget.FactionRank} requested: {humanProfile.FactionId}/{humanProfile.FactionRank}). They may be using a modified client!");
+                        profile = ((HumanoidCharacterProfile) profile).WithFaction(
+                            humanoidEditingTarget.FactionId,
+                            humanoidEditingTarget.FactionName,
+                            humanoidEditingTarget.FactionRank);
+                    }
                 }
                 else
                 {
@@ -127,6 +140,14 @@ namespace Content.Server.Preferences.Managers
                     {
                         _sawmill.Info($"{session.Name} tried to create a character with a non-default balance (expected: {HumanoidCharacterProfile.DefaultBalance} requested: {humanProfile.BankBalance}). They may be using a modified client!");
                         profile = humanProfile.WithBankBalance(HumanoidCharacterProfile.DefaultBalance);
+                    }
+
+                    if (humanProfile.FactionId.Length > 0 ||
+                        humanProfile.FactionName.Length > 0 ||
+                        humanProfile.FactionRank != FactionRole.Member)
+                    {
+                        _sawmill.Info($"{session.Name} tried to create a character with a pre-set faction ({humanProfile.FactionId}/{humanProfile.FactionRank}). They may be using a modified client!");
+                        profile = ((HumanoidCharacterProfile) profile).WithFaction(string.Empty, string.Empty, FactionRole.Member);
                     }
                 }
             }

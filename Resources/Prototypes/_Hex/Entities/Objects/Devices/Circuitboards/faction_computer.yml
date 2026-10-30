@@ -1,0 +1,8 @@
+- type: entity
+  parent: BaseComputerCircuitboard
+  id: FactionComputerCircuitboard
+  name: faction terminal board
+  description: A computer printed circuit board for a faction terminal.
+  components:
+  - type: ComputerBoard
+    prototype: FactionComputer

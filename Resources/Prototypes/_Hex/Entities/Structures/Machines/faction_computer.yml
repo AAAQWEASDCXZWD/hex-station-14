@@ -1,0 +1,27 @@
+- type: entity
+  parent: BaseComputerAiAccess
+  id: FactionComputer
+  name: faction terminal
+  description: A terminal for registering a faction and managing its profile.
+  components:
+  - type: FactionComputer
+  - type: ItemSlots
+    slots:
+      FactionComputer-id:
+        name: faction-computer-id-slot-name
+        insertSound: /Audio/Machines/id_insert.ogg
+        ejectSound: /Audio/Machines/id_swipe.ogg
+        whitelist:
+          components:
+          - IdCard
+  - type: ContainerContainer
+    containers:
+      board: !type:Container
+        ents: []
+      FactionComputer-id: !type:ContainerSlot
+  - type: ActivatableUI
+    key: enum.FactionComputerUiKey.Key
+  - type: UserInterface
+    interfaces:
+      enum.FactionComputerUiKey.Key:
+        type: FactionComputerBoundUserInterface

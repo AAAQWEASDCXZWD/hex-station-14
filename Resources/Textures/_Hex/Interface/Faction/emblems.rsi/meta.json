@@ -1,0 +1,35 @@
+{
+    "version": 1,
+    "license": "CC-BY-SA-3.0",
+    "copyright": "hex-station faction emblems (generated procedurally)",
+    "size": {
+        "x": 64,
+        "y": 64
+    },
+    "states": [
+        {
+            "name": "shield"
+        },
+        {
+            "name": "star"
+        },
+        {
+            "name": "circle"
+        },
+        {
+            "name": "diamond"
+        },
+        {
+            "name": "hexagon"
+        },
+        {
+            "name": "triangle"
+        },
+        {
+            "name": "cross"
+        },
+        {
+            "name": "ring"
+        }
+    ]
+}

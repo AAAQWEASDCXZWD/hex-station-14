@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Content.Server.Administration.Logs;
 using Content.Server.Administration.Managers;
+using Content.Shared._Hex.Faction;
 using Content.Shared.Administration.Logs;
 using Content.Shared.Construction.Prototypes;
 using Content.Shared.Database;
@@ -221,6 +222,11 @@ namespace Content.Server.Database
                 gender = genderVal;
 
             var balance = profile.BankBalance;
+            var factionId = profile.FactionId;
+            var factionName = profile.FactionName;
+            var factionRole = Enum.IsDefined((FactionRole) profile.FactionRole)
+                ? (FactionRole) profile.FactionRole
+                : FactionRole.Member;
 
             // ReSharper disable once ConditionalAccessQualifierIsNonNullableAccordingToAPIContract
             var markingsRaw = profile.Markings?.Deserialize<List<string>>();
@@ -270,6 +276,9 @@ namespace Content.Server.Database
                 sex,
                 gender,
                 balance,
+                factionId,
+                factionName,
+                factionRole,
                 new HumanoidCharacterAppearance
                 (
                     profile.HairName,
@@ -307,6 +316,9 @@ namespace Content.Server.Database
             profile.Sex = humanoid.Sex.ToString();
             profile.Gender = humanoid.Gender.ToString();
             profile.BankBalance = humanoid.BankBalance;
+            profile.FactionId = humanoid.FactionId;
+            profile.FactionName = humanoid.FactionName;
+            profile.FactionRole = (int) humanoid.FactionRank;
             profile.HairName = appearance.HairStyleId;
             profile.HairColor = appearance.HairColor.ToHex();
             profile.FacialHairName = appearance.FacialHairStyleId;

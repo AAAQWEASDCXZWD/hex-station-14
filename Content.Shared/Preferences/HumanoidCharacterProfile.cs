@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
+using Content.Shared._Hex.Faction;
 using Content.Shared._NF.Bank;
 using Content.Shared.CCVar;
 using Content.Shared.GameTicking;
@@ -90,6 +91,25 @@ namespace Content.Shared.Preferences
         public int BankBalance { get; private set; } = DefaultBalance; // Frontier: Bank balance
 
         /// <summary>
+        ///     Id of the faction this character belongs to. Stored in the character profile so the
+        ///     binding survives between rounds and respawns of the same character.
+        /// </summary>
+        [DataField]
+        public string FactionId { get; private set; } = string.Empty;
+
+        /// <summary>
+        ///     Cached faction name, kept in sync with the faction registry for display purposes.
+        /// </summary>
+        [DataField]
+        public string FactionName { get; private set; } = string.Empty;
+
+        /// <summary>
+        ///     Role of this character inside <see cref="FactionId"/>.
+        /// </summary>
+        [DataField]
+        public FactionRole FactionRank { get; private set; } = FactionRole.Member;
+
+        /// <summary>
         /// <see cref="Appearance"/>
         /// </summary>
         public ICharacterAppearance CharacterAppearance => Appearance;
@@ -136,6 +156,9 @@ namespace Content.Shared.Preferences
             Sex sex,
             Gender gender,
             int bankBalance,
+            string factionId,
+            string factionName,
+            FactionRole factionRank,
             HumanoidCharacterAppearance appearance,
             SpawnPriorityPreference spawnPriority,
             Dictionary<ProtoId<JobPrototype>, JobPriority> jobPriorities,
@@ -151,6 +174,9 @@ namespace Content.Shared.Preferences
             Sex = sex;
             Gender = gender;
             BankBalance = bankBalance;
+            FactionId = factionId;
+            FactionName = factionName;
+            FactionRank = factionRank;
             Appearance = appearance;
             SpawnPriority = spawnPriority;
             _jobPriorities = jobPriorities;
@@ -167,7 +193,7 @@ namespace Content.Shared.Preferences
             HashSet<ProtoId<AntagPrototype>> antagPreferences,
             HashSet<ProtoId<TraitPrototype>> traitPreferences,
             Dictionary<string, RoleLoadout> loadouts)
-            : this(other.Name, other.FlavorText, other.Species, other.Age, other.Sex, other.Gender, other.BankBalance, other.Appearance, other.SpawnPriority,
+            : this(other.Name, other.FlavorText, other.Species, other.Age, other.Sex, other.Gender, other.BankBalance, other.FactionId, other.FactionName, other.FactionRank, other.Appearance, other.SpawnPriority,
                 jobPriorities, other.PreferenceUnavailable, antagPreferences, traitPreferences, loadouts)
         {
         }
@@ -181,6 +207,9 @@ namespace Content.Shared.Preferences
                 other.Sex,
                 other.Gender,
                 other.BankBalance,
+                other.FactionId,
+                other.FactionName,
+                other.FactionRank,
                 other.Appearance.Clone(),
                 other.SpawnPriority,
                 new Dictionary<ProtoId<JobPrototype>, JobPriority>(other.JobPriorities),
@@ -300,6 +329,19 @@ namespace Content.Shared.Preferences
             return new(this) { BankBalance = bankBalance };
         }
         // End Frontier
+
+        /// <summary>
+        ///     Sets (or clears, with an empty <paramref name="factionId"/>) the faction binding stored on the character.
+        /// </summary>
+        public HumanoidCharacterProfile WithFaction(string factionId, string factionName, FactionRole role)
+        {
+            return new(this)
+            {
+                FactionId = factionId,
+                FactionName = factionName,
+                FactionRank = role,
+            };
+        }
 
         public HumanoidCharacterProfile WithSpecies(string species)
         {
@@ -480,6 +522,9 @@ namespace Content.Shared.Preferences
             if (Gender != other.Gender) return false;
             if (Species != other.Species) return false;
             if (BankBalance != other.BankBalance) return false; // Frontier
+            if (FactionId != other.FactionId) return false;
+            if (FactionName != other.FactionName) return false;
+            if (FactionRank != other.FactionRank) return false;
             if (PreferenceUnavailable != other.PreferenceUnavailable) return false;
             if (SpawnPriority != other.SpawnPriority) return false;
             if (!_jobPriorities.SequenceEqual(other._jobPriorities)) return false;
@@ -585,6 +630,23 @@ namespace Content.Shared.Preferences
             }
             // End Frontier
 
+            // Faction binding is normally server-owned, but sanitize anything that arrives from a client.
+            var factionId = FactionId.Trim();
+            var factionName = FactionName.Trim();
+            var factionRank = Enum.IsDefined(FactionRank) ? FactionRank : FactionRole.Member;
+
+            if (factionId.Length > 64)
+                factionId = factionId[..64];
+
+            if (factionName.Length > FactionDefaults.MaxNameLength)
+                factionName = factionName[..FactionDefaults.MaxNameLength];
+
+            if (factionId.Length == 0)
+            {
+                factionName = string.Empty;
+                factionRank = FactionRole.Member;
+            }
+
             var appearance = HumanoidCharacterAppearance.EnsureValid(Appearance, Species, Sex);
 
             var prefsUnavailableMode = PreferenceUnavailable switch
@@ -637,6 +699,9 @@ namespace Content.Shared.Preferences
             Sex = sex;
             Gender = gender;
             BankBalance = bankBalance;
+            FactionId = factionId;
+            FactionName = factionName;
+            FactionRank = factionRank;
             Appearance = appearance;
             SpawnPriority = spawnPriority;
 
@@ -756,6 +821,9 @@ namespace Content.Shared.Preferences
             hashCode.Add((int)Gender);
             hashCode.Add(Appearance);
             hashCode.Add(BankBalance); // Frontier
+            hashCode.Add(FactionId);
+            hashCode.Add(FactionName);
+            hashCode.Add((int) FactionRank);
             hashCode.Add((int)SpawnPriority);
             hashCode.Add((int)PreferenceUnavailable);
             return hashCode.ToHashCode();

@@ -806,6 +806,20 @@ namespace Content.Server.Database.Migrations.Sqlite
                         .HasColumnType("TEXT")
                         .HasColumnName("facial_hair_name");
 
+                    b.Property<string>("FactionId")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("faction_id");
+
+                    b.Property<string>("FactionName")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("faction_name");
+
+                    b.Property<int>("FactionRole")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("faction_role");
+
                     b.Property<string>("FlavorText")
                         .IsRequired()
                         .HasColumnType("TEXT")

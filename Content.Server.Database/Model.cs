@@ -404,6 +404,9 @@ namespace Content.Server.Database
         public string FlavorText { get; set; } = null!;
         public int Age { get; set; }
         public int BankBalance { get; set; }
+        public string FactionId { get; set; } = string.Empty;
+        public string FactionName { get; set; } = string.Empty;
+        public int FactionRole { get; set; } = 2; // FactionRole.Member
         public string Sex { get; set; } = null!;
         public string Gender { get; set; } = null!;
         public string Species { get; set; } = null!;

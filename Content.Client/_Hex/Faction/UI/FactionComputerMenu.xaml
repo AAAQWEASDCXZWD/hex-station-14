@@ -1,0 +1,59 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      SetSize="480 560"
+                      MinSize="480 520">
+    <BoxContainer Orientation="Vertical" Margin="10">
+        <Label Text="{Loc 'faction-computer-menu-title'}" StyleClasses="LabelBig" Margin="0 0 0 8"/>
+
+        <!-- Shown until the terminal has been claimed by a faction. -->
+        <BoxContainer Name="RegisterContainer" Orientation="Vertical" SeparationOverride="6">
+            <Label Text="{Loc 'faction-computer-register-hint'}" StyleClasses="LabelSubText"/>
+            <Button Name="IdCardButton" Text="{Loc 'faction-computer-id-insert'}" HorizontalExpand="True"/>
+            <Label Name="IdCardStatus" Text="{Loc 'faction-computer-id-empty'}" StyleClasses="LabelSubText"/>
+            <LineEdit Name="NameEdit" PlaceHolder="{Loc 'faction-computer-register-name'}" HorizontalExpand="True"/>
+            <Button Name="CreateButton" Text="{Loc 'faction-computer-register-create'}" Disabled="True" HorizontalExpand="True"/>
+
+            <Label Text="{Loc 'faction-computer-link-title'}" StyleClasses="LabelKeyText" Margin="0 8 0 0"/>
+            <ScrollContainer HorizontalExpand="True" MinHeight="170">
+                <BoxContainer Name="FactionListContainer"
+                              Orientation="Vertical"
+                              HorizontalExpand="True"
+                              SeparationOverride="2"/>
+            </ScrollContainer>
+            <Label Name="NoFactionsLabel"
+                   Text="{Loc 'faction-computer-no-factions'}"
+                   StyleClasses="LabelSubText"
+                   Visible="False"/>
+
+            <Label Text="{Loc 'faction-computer-register-note'}" StyleClasses="LabelSubText"/>
+        </BoxContainer>
+
+        <!-- Faction profile, shown after registration. -->
+        <BoxContainer Name="ProfileContainer" Orientation="Vertical" SeparationOverride="10" Visible="False">
+            <PanelContainer Name="HeaderPanel" HorizontalExpand="True" MinHeight="120">
+                <BoxContainer Orientation="Horizontal" SeparationOverride="10">
+                    <TextureRect Name="PhotoRect"
+                                 MinSize="64 64"
+                                 SetSize="64 64"
+                                 Stretch="KeepAspectCentered"
+                                 VerticalAlignment="Center"/>
+                    <BoxContainer Orientation="Vertical"
+                                  HorizontalExpand="True"
+                                  VerticalAlignment="Center"
+                                  SeparationOverride="4">
+                        <Label Name="FactionNameLabel" StyleClasses="LabelBig" ClipText="True"/>
+                        <Label Name="DescriptionLabel" StyleClasses="LabelSubText"/>
+                    </BoxContainer>
+                </BoxContainer>
+            </PanelContainer>
+
+            <BoxContainer Orientation="Horizontal" SeparationOverride="6">
+                <Button Name="CustomizationButton" Text="{Loc 'faction-computer-customize'}" HorizontalExpand="True"/>
+                <Button Name="MembersButton" Text="{Loc 'faction-computer-members'}" HorizontalExpand="True"/>
+                <Button Name="ProgressButton" Text="{Loc 'faction-computer-progress'}" HorizontalExpand="True"/>
+            </BoxContainer>
+
+            <Label Name="OwnerNote" Text="{Loc 'faction-computer-not-leader'}" StyleClasses="LabelSubText" Visible="False"/>
+        </BoxContainer>
+    </BoxContainer>
+</controls:FancyWindow>
