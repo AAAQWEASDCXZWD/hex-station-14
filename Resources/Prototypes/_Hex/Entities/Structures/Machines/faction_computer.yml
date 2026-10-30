@@ -5,6 +5,21 @@
   description: A terminal for registering a faction and managing its profile.
   components:
   - type: FactionComputer
+  # Own copy of the generic computer sprite so the terminal has a stable sprite
+  # even if the parent prototype's sprite changes or fails to load.
+  - type: Sprite
+    sprite: _Hex/Structures/Machines/faction_computer.rsi
+    layers:
+    - map: ["computerLayerBody"]
+      state: computer
+    - map: ["computerLayerKeyboard"]
+      state: generic_keyboard
+    - map: ["computerLayerScreen"]
+      state: generic
+    - map: ["computerLayerKeys"]
+      state: generic_keys
+    - map: [ "enum.WiresVisualLayers.MaintenancePanel" ]
+      state: generic_panel_open
   - type: ItemSlots
     slots:
       FactionComputer-id:

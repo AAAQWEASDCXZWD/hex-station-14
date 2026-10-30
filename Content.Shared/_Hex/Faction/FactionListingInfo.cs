@@ -11,18 +11,22 @@ public sealed class FactionListingInfo
 {
     public readonly string Id;
     public readonly string Name;
+    public readonly string Description;
     public readonly string ColorHex;
     public readonly string PhotoId;
     public readonly string LeaderName;
     public readonly List<NetUserId> MemberUserIds;
+    public readonly List<FactionMemberInfo> Members;
 
-    public FactionListingInfo(string id, string name, string colorHex, string photoId, string leaderName, List<NetUserId> memberUserIds)
+    public FactionListingInfo(string id, string name, string description, string colorHex, string photoId, string leaderName, List<NetUserId> memberUserIds, List<FactionMemberInfo> members)
     {
         Id = id;
         Name = name;
+        Description = description;
         ColorHex = colorHex;
         PhotoId = photoId;
         LeaderName = leaderName;
         MemberUserIds = memberUserIds;
+        Members = members;
     }
 }

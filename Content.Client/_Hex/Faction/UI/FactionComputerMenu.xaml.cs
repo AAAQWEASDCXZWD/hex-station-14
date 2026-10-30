@@ -47,6 +47,9 @@ public sealed partial class FactionComputerMenu : FancyWindow
         RegisterContainer.Visible = !state.Registered;
         ProfileContainer.Visible = state.Registered;
 
+        if (FactionDetailContainer != null)
+            FactionDetailContainer.Visible = false;
+
         if (!state.Registered)
         {
             UpdateRegistration(state);
@@ -122,40 +125,93 @@ public sealed partial class FactionComputerMenu : FancyWindow
         {
             Texture = FactionUi.GetEmblem(_sysMan, listing.PhotoId),
             Modulate = color,
-            MinSize = new Vector2(24, 24),
-            SetSize = new Vector2(24, 24),
+            MinSize = new Vector2(20, 20),
+            SetSize = new Vector2(20, 20),
             Stretch = TextureRect.StretchMode.KeepAspectCentered,
             VerticalAlignment = VAlignment.Center,
         });
 
-        box.AddChild(new Label
+        var nameBox = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Vertical, HorizontalExpand = true, SeparationOverride = 0 };
+        nameBox.AddChild(new Label
         {
             Text = listing.Name,
-            HorizontalExpand = true,
+            FontColorOverride = Color.FromHex("#e2e8f0"),
             ClipText = true,
-            VerticalAlignment = VAlignment.Center,
+            HorizontalExpand = true,
         });
-
-        box.AddChild(new Label
+        nameBox.AddChild(new Label
         {
             Text = Loc.GetString("faction-computer-link-leader", ("name", listing.LeaderName)),
+            StyleClasses = { "LabelSubText" },
             FontColorOverride = Color.FromHex("#94a3b8"),
-            VerticalAlignment = VAlignment.Center,
+            ClipText = true,
         });
+        box.AddChild(nameBox);
+
+        var viewButton = new Button
+        {
+            Text = Loc.GetString("faction-computer-view"),
+            MinSize = new Vector2(44, 22),
+        };
+        viewButton.OnPressed += _ => ShowFactionDetail(listing);
 
         var linkButton = new Button
         {
             Text = Loc.GetString("faction-computer-link"),
             Disabled = !canLink,
-            MinSize = new Vector2(90, 28),
+            MinSize = new Vector2(44, 22),
             ToolTip = canLink ? null : Loc.GetString("faction-computer-link-not-member"),
         };
 
         var factionId = listing.Id;
         linkButton.OnPressed += _ => OnLinkRequested?.Invoke(factionId);
 
+        box.AddChild(viewButton);
         box.AddChild(linkButton);
         row.AddChild(box);
         return row;
+    }
+
+    private void ShowFactionDetail(FactionListingInfo listing)
+    {
+        if (FactionDetailContainer == null)
+            return;
+
+        FactionDetailContainer.Visible = true;
+
+        if (DetailPhotoRect != null)
+            DetailPhotoRect.Texture = FactionUi.GetEmblem(_sysMan, listing.PhotoId);
+
+        if (DetailNameLabel != null)
+        {
+            DetailNameLabel.Text = listing.Name;
+            DetailNameLabel.FontColorOverride = FactionUi.GetColor(listing.ColorHex);
+        }
+
+        if (DetailDescriptionLabel != null)
+            DetailDescriptionLabel.Text = string.IsNullOrWhiteSpace(listing.Description)
+                ? Loc.GetString("faction-computer-no-description")
+                : listing.Description;
+
+        if (DetailLeaderLabel != null)
+            DetailLeaderLabel.Text = Loc.GetString("faction-computer-detail-leader", ("name", listing.LeaderName));
+
+        if (DetailMembersLabel != null)
+            DetailMembersLabel.Text = Loc.GetString("faction-computer-detail-members", ("count", listing.Members.Count));
+
+        if (DetailMembersContainer != null)
+        {
+            DetailMembersContainer.RemoveAllChildren();
+            foreach (var member in listing.Members)
+            {
+                var memberLabel = new Label
+                {
+                    Text = $"{member.CharacterName} — {Loc.GetString($"faction-role-{member.Role.ToString().ToLowerInvariant()}")}",
+                    FontColorOverride = Color.FromHex("#cbd5e1"),
+                };
+                memberLabel.StyleClasses.Add("LabelSubText");
+                DetailMembersContainer.AddChild(memberLabel);
+            }
+        }
     }
 }

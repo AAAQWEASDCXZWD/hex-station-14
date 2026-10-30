@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Content.Server.Mind;
 using Content.Server.Popups;
+using Content.Shared.Access.Components;
 using Content.Server.Preferences.Managers;
 using Content.Shared._Hex.Faction;
 using Content.Shared.Containers.ItemSlots;
@@ -217,6 +218,12 @@ public sealed class FactionComputerSystem : EntitySystem
         if (!TryGetPlayerProfile(player, out var userId, out var slot, out var profile))
             return;
 
+        if (!IdCardMatchesCharacter(uid, profile))
+        {
+            _popup.PopupEntity(Loc.GetString("faction-computer-id-name-mismatch"), player, player);
+            return;
+        }
+
         if (profile.FactionId.Length > 0 && _factions.ContainsKey(profile.FactionId))
         {
             _popup.PopupEntity(Loc.GetString("faction-computer-already-in-faction"), player, player);
@@ -271,6 +278,12 @@ public sealed class FactionComputerSystem : EntitySystem
 
         if (!TryGetPlayerProfile(player, out var userId, out var slot, out var profile))
             return;
+
+        if (!IdCardMatchesCharacter(uid, profile))
+        {
+            _popup.PopupEntity(Loc.GetString("faction-computer-id-name-mismatch"), player, player);
+            return;
+        }
 
         var member = FindMember(faction, userId, profile.Name);
         if (profile.FactionId != faction.Id && member == null)
@@ -550,6 +563,24 @@ public sealed class FactionComputerSystem : EntitySystem
         return _slots.TryGetSlot(uid, FactionDefaults.IdSlot, out var slot) && slot?.Item != null;
     }
 
+    /// <summary>
+    ///     Ensures the inserted ID card belongs to the character that is using the terminal,
+    ///     so a player cannot register/link a faction on behalf of another character.
+    /// </summary>
+    private bool IdCardMatchesCharacter(EntityUid uid, HumanoidCharacterProfile profile)
+    {
+        if (!_slots.TryGetSlot(uid, FactionDefaults.IdSlot, out var slot) || slot?.Item is not { } card)
+            return true;
+
+        if (!TryComp<IdCardComponent>(card, out var idCard))
+            return true;
+
+        if (string.IsNullOrWhiteSpace(idCard.FullName))
+            return true;
+
+        return idCard.FullName == profile.Name;
+    }
+
     private void UpdateState(EntityUid uid, FactionComputerComponent component)
     {
         Faction? faction = null;
@@ -588,10 +619,12 @@ public sealed class FactionComputerSystem : EntitySystem
                 availableFactions.Add(new FactionListingInfo(
                     entry.Id,
                     entry.Name,
+                    entry.Description,
                     entry.ColorHex,
                     entry.PhotoId,
                     entry.LeaderCharacterName,
-                    entry.Members.Select(member => member.UserId).Distinct().ToList()));
+                    entry.Members.Select(member => member.UserId).Distinct().ToList(),
+                    entry.Members.Select(member => new FactionMemberInfo(member.UserId, member.CharacterName, member.Role)).ToList()));
             }
         }
 
