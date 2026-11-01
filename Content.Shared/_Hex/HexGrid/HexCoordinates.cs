@@ -26,12 +26,12 @@ public static class HexGrid
     /// <summary>
     /// Distance from a hex centre to each of its vertices, in map coordinates.
     /// </summary>
-    public const float HexRadius = 30f;
+    public const float HexRadius = 450f;
 
     /// <summary>
     /// The central hex and its six direct neighbours.
     /// </summary>
-    public const int StandardHexRadius = 1;
+    public const int StandardHexRadius = 3;
 
     private const float Sqrt3 = 1.7320508075688772f;
 

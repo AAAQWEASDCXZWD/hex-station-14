@@ -14,10 +14,12 @@ public sealed class FactionComputerUiState : BoundUserInterfaceState
     public readonly string PhotoId;
     public readonly NetUserId OwnerUserId;
     public readonly string OwnerCharacterName;
+    public readonly int BeaconCount;
     public readonly bool HasIdCard;
     public readonly string? IdCardName;
     public readonly List<FactionMemberInfo> Members;
     public readonly List<FactionListingInfo> AvailableFactions;
+    public readonly byte[]? CustomPhotoData;
 
     public FactionComputerUiState(
         bool registered,
@@ -28,10 +30,12 @@ public sealed class FactionComputerUiState : BoundUserInterfaceState
         string photoId,
         NetUserId ownerUserId,
         string ownerCharacterName,
+        int beaconCount,
         bool hasIdCard,
         string? idCardName,
         List<FactionMemberInfo> members,
-        List<FactionListingInfo> availableFactions)
+        List<FactionListingInfo> availableFactions,
+        byte[]? customPhotoData = null)
     {
         Registered = registered;
         FactionId = factionId;
@@ -41,9 +45,11 @@ public sealed class FactionComputerUiState : BoundUserInterfaceState
         PhotoId = photoId;
         OwnerUserId = ownerUserId;
         OwnerCharacterName = ownerCharacterName;
+        BeaconCount = beaconCount;
         HasIdCard = hasIdCard;
         IdCardName = idCardName;
         Members = members;
         AvailableFactions = availableFactions;
+        CustomPhotoData = customPhotoData;
     }
 }

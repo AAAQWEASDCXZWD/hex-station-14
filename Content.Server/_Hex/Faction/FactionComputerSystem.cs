@@ -34,6 +34,7 @@ public sealed class FactionComputerSystem : EntitySystem
     [Dependency] private readonly IServerPreferencesManager _preferences = default!;
     [Dependency] private readonly IResourceManager _resources = default!;
     [Dependency] private readonly ILogManager _logManager = default!;
+    [Dependency] private readonly StationBeaconSystem _beacons = default!;
 
     private readonly Dictionary<string, Faction> _factions = new();
     private FactionRegistryStorage _storage = default!;
@@ -69,10 +70,16 @@ public sealed class FactionComputerSystem : EntitySystem
         public string Description = string.Empty;
         public string ColorHex = FactionDefaults.DefaultColor;
         public string PhotoId = FactionDefaults.DefaultPhoto;
+        public byte[]? CustomPhotoData;
 
         public NetUserId LeaderUserId;
         public EntityUid? LeaderCharacter;
         public string LeaderCharacterName = string.Empty;
+
+        /// <summary>
+        ///     Hidden factions (e.g. the factionless bucket used by station beacons) are not shown in the terminal UI.
+        /// </summary>
+        public bool Hidden;
 
         public readonly List<FactionMember> Members = new();
         public readonly HashSet<EntityUid> Terminals = new();
@@ -94,8 +101,12 @@ public sealed class FactionComputerSystem : EntitySystem
                 Description = record.Description ?? string.Empty,
                 ColorHex = FactionDefaults.IsValidColor(record.ColorHex) ? record.ColorHex : FactionDefaults.DefaultColor,
                 PhotoId = FactionDefaults.IsValidPhoto(record.PhotoId) ? record.PhotoId : FactionDefaults.DefaultPhoto,
+                CustomPhotoData = !string.IsNullOrEmpty(record.CustomPhotoBase64)
+                    ? Convert.FromBase64String(record.CustomPhotoBase64)
+                    : null,
                 LeaderUserId = new NetUserId(record.LeaderUserId),
                 LeaderCharacterName = record.LeaderCharacterName ?? string.Empty,
+                Hidden = record.Hidden,
             };
 
             foreach (var memberRecord in record.Members ?? new List<FactionMemberRecord>())
@@ -130,8 +141,12 @@ public sealed class FactionComputerSystem : EntitySystem
                 Description = faction.Description,
                 ColorHex = faction.ColorHex,
                 PhotoId = faction.PhotoId,
+                CustomPhotoBase64 = faction.CustomPhotoData != null
+                    ? Convert.ToBase64String(faction.CustomPhotoData)
+                    : null,
                 LeaderUserId = faction.LeaderUserId.UserId,
                 LeaderCharacterName = faction.LeaderCharacterName,
+                Hidden = faction.Hidden,
             };
 
             foreach (var member in faction.Members)
@@ -346,6 +361,12 @@ public sealed class FactionComputerSystem : EntitySystem
         faction.Description = description;
         faction.ColorHex = FactionDefaults.IsValidColor(args.ColorHex) ? args.ColorHex : faction.ColorHex;
         faction.PhotoId = FactionDefaults.IsValidPhoto(args.PhotoId) ? args.PhotoId : faction.PhotoId;
+
+        if (args.CustomPhotoData != null && args.CustomPhotoData.Length <= FactionDefaults.MaxCustomPhotoBytes)
+            faction.CustomPhotoData = args.CustomPhotoData;
+        else if (args.CustomPhotoData != null && args.CustomPhotoData.Length == 0)
+            faction.CustomPhotoData = null; // Clear custom photo
+
         faction.LeaderCharacterName = profile.Name;
 
         // Keep the per-character copy of the faction name in sync.
@@ -558,6 +579,53 @@ public sealed class FactionComputerSystem : EntitySystem
         return null;
     }
 
+    /// <summary>
+    ///     Returns the ColorHex of the given faction, or null if not found.
+    /// </summary>
+    public string? TryGetFactionColor(string factionId)
+    {
+        return _factions.TryGetValue(factionId, out var f) ? f.ColorHex : null;
+    }
+
+    /// <summary>
+    ///     Returns (or creates) the hidden faction used by factionless station beacons.
+    /// </summary>
+    public Faction GetOrCreateHiddenFaction()
+    {
+        foreach (var faction in _factions.Values)
+        {
+            if (faction.Hidden)
+                return faction;
+        }
+
+        var hidden = new Faction
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Name = "Unaffiliated",
+            Hidden = true,
+        };
+        _factions[hidden.Id] = hidden;
+        SaveRegistry();
+        return hidden;
+    }
+
+    /// <summary>
+    ///     Resolves which faction a player's current character belongs to, falling back to the hidden faction.
+    /// </summary>
+    public (string FactionId, string FactionName) ResolvePlayerFaction(EntityUid player)
+    {
+        if (TryGetPlayerProfile(player, out _, out _, out var profile) &&
+            profile.FactionId.Length > 0 &&
+            _factions.TryGetValue(profile.FactionId, out var faction) &&
+            !faction.Hidden)
+        {
+            return (faction.Id, faction.Name);
+        }
+
+        var hidden = GetOrCreateHiddenFaction();
+        return (hidden.Id, hidden.Name);
+    }
+
     private bool HasIdCard(EntityUid uid)
     {
         return _slots.TryGetSlot(uid, FactionDefaults.IdSlot, out var slot) && slot?.Item != null;
@@ -614,7 +682,7 @@ public sealed class FactionComputerSystem : EntitySystem
         }
         else
         {
-            foreach (var entry in _factions.Values)
+            foreach (var entry in _factions.Values.Where(f => !f.Hidden))
             {
                 availableFactions.Add(new FactionListingInfo(
                     entry.Id,
@@ -624,7 +692,8 @@ public sealed class FactionComputerSystem : EntitySystem
                     entry.PhotoId,
                     entry.LeaderCharacterName,
                     entry.Members.Select(member => member.UserId).Distinct().ToList(),
-                    entry.Members.Select(member => new FactionMemberInfo(member.UserId, member.CharacterName, member.Role)).ToList()));
+                    entry.Members.Select(member => new FactionMemberInfo(member.UserId, member.CharacterName, member.Role)).ToList(),
+                    _beacons.CountBeacons(entry.Id)));
             }
         }
 
@@ -637,10 +706,12 @@ public sealed class FactionComputerSystem : EntitySystem
             faction?.PhotoId ?? FactionDefaults.DefaultPhoto,
             faction?.LeaderUserId ?? default,
             faction?.LeaderCharacterName ?? string.Empty,
+            faction != null ? _beacons.CountBeacons(faction.Id) : 0,
             hasCard,
             cardName,
             members,
-            availableFactions);
+            availableFactions,
+            faction?.CustomPhotoData);
 
         _ui.SetUiState(uid, FactionComputerUiKey.Key, state);
     }

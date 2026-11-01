@@ -1,0 +1,32 @@
+- type: entity
+  parent: BaseItem
+  id: FactionStationBeacon
+  name: station beacon
+  description: A station beacon that claims a hex on the navigation map for a faction.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/station_beacon.rsi
+    layers:
+    - state: icon
+      map: ["base"]
+  - type: Item
+    size: Small
+  - type: StationBeacon
+  - type: UserInterface
+    interfaces:
+      enum.StationBeaconUiKey.Key:
+        type: StationBeaconBoundUserInterface
+  - type: ActivatableUI
+    key: enum.StationBeaconUiKey.Key
+    singleUser: true
+  - type: Anchorable
+  - type: Physics
+    canCollide: true
+    bodyType: dynamic
+  - type: Transform
+    anchored: false
+  - type: Visibility
+    layer: 1
+  - type: SubFloorHide

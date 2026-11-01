@@ -17,8 +17,9 @@ public sealed class FactionListingInfo
     public readonly string LeaderName;
     public readonly List<NetUserId> MemberUserIds;
     public readonly List<FactionMemberInfo> Members;
+    public readonly int BeaconCount;
 
-    public FactionListingInfo(string id, string name, string description, string colorHex, string photoId, string leaderName, List<NetUserId> memberUserIds, List<FactionMemberInfo> members)
+    public FactionListingInfo(string id, string name, string description, string colorHex, string photoId, string leaderName, List<NetUserId> memberUserIds, List<FactionMemberInfo> members, int beaconCount)
     {
         Id = id;
         Name = name;
@@ -28,5 +29,6 @@ public sealed class FactionListingInfo
         LeaderName = leaderName;
         MemberUserIds = memberUserIds;
         Members = members;
+        BeaconCount = beaconCount;
     }
 }

@@ -5,7 +5,7 @@ using Robust.Shared.Serialization;
 namespace Content.Shared.HexGrid;
 
 /// <summary>
-/// Sent by the server to provide the current runtime names of all hexes.
+/// Sent by the server to provide the current runtime names and colors of all hexes.
 /// </summary>
 [Serializable, NetSerializable]
 public sealed class HexGridNamesUpdatedEvent(List<HexGridName> names) : EntityEventArgs
@@ -14,4 +14,4 @@ public sealed class HexGridNamesUpdatedEvent(List<HexGridName> names) : EntityEv
 }
 
 [Serializable, NetSerializable]
-public readonly record struct HexGridName(int Q, int R, string Name);
+public readonly record struct HexGridName(int Q, int R, string Name, string? ColorHex = null);

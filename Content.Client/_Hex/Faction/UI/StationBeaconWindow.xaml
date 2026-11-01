@@ -1,0 +1,15 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                      xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                      SetSize="380 250"
+                      MinSize="340 230">
+    <BoxContainer Orientation="Vertical" Margin="14" SeparationOverride="8">
+        <Label Name="FactionLabel" StyleClasses="LabelSubText"/>
+        <Label Text="{Loc 'station-beacon-label'}" StyleClasses="LabelKeyText" Margin="0 4 0 0"/>
+        <LineEdit Name="LabelEdit" HorizontalExpand="True" MinSize="0 30"/>
+        <Label Name="StatusLabel" StyleClasses="LabelSubText"/>
+        <Label Text="{Loc 'station-beacon-alt-restart-hint'}" StyleClasses="LabelSubText"
+               FontColorOverride="#64748b" Margin="0 4 0 0"/>
+        <Button Name="UpdateButton" Text="{Loc 'station-beacon-update'}"
+                HorizontalExpand="True" MinSize="0 34" Margin="0 8 0 0"/>
+    </BoxContainer>
+</controls:FancyWindow>

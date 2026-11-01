@@ -41,9 +41,24 @@ public sealed partial class ShuttleMapControl
                 .ToArray();
 
             var isCurrentHex = hex == currentHex;
-            var edgeColor = isCurrentHex ? CurrentHexEdgeColor : HexEdgeColor;
-            for (var i = 0; i < 6; i++)
-                DrawHexEdge(handle, verts[i], verts[(i + 1) % 6], edgeColor, isCurrentHex);
+            var factionColor = names.GetColor(hex);
+
+            if (factionColor.HasValue)
+            {
+                // Faction hex: partially transparent fill + colored edges.
+                var fillColor = factionColor.Value.WithAlpha(0.12f);
+                handle.DrawPrimitives(DrawPrimitiveTopology.TriangleFan, verts, fillColor);
+
+                var edgeCol = isCurrentHex ? CurrentHexEdgeColor : factionColor.Value.WithAlpha(0.75f);
+                for (var i = 0; i < 6; i++)
+                    DrawHexEdge(handle, verts[i], verts[(i + 1) % 6], edgeCol, isCurrentHex);
+            }
+            else
+            {
+                var edgeColor = isCurrentHex ? CurrentHexEdgeColor : HexEdgeColor;
+                for (var i = 0; i < 6; i++)
+                    DrawHexEdge(handle, verts[i], verts[(i + 1) % 6], edgeColor, isCurrentHex);
+            }
 
             var center = HexMapToScreen(HexGrid.GetCenter(hex), matty);
             DrawHexLabel(handle, center, verts, hex, names.GetName(hex));

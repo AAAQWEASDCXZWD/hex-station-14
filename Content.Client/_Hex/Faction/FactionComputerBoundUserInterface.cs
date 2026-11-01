@@ -59,8 +59,8 @@ public sealed class FactionComputerBoundUserInterface : BoundUserInterface
         if (_customizationWindow == null)
         {
             _customizationWindow = new FactionCustomizationWindow();
-            _customizationWindow.OnSaveRequested += (name, description, color, photo) =>
-                SendMessage(new FactionCustomizeMessage(name, description, color, photo));
+            _customizationWindow.OnSaveRequested += (name, description, color, photo, customPhotoData) =>
+                SendMessage(new FactionCustomizeMessage(name, description, color, photo, customPhotoData));
         }
 
         _customizationWindow.UpdateState(_state);

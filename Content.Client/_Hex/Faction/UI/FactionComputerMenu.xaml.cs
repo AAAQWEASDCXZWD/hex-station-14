@@ -59,14 +59,19 @@ public sealed partial class FactionComputerMenu : FancyWindow
         var color = FactionUi.GetColor(state.ColorHex);
         HeaderPanel.PanelOverride = FactionUi.CreateHeaderStyle(color);
 
-        PhotoRect.Texture = FactionUi.GetEmblem(_sysMan, state.PhotoId);
-        PhotoRect.Modulate = color;
+        // Custom photo takes priority over preset emblem.
+        var customTex = FactionUi.LoadTextureFromBytes(state.CustomPhotoData);
+        PhotoRect.Texture = customTex ?? FactionUi.GetEmblem(_sysMan, state.PhotoId);
+        PhotoRect.Modulate = customTex != null ? Color.White : color;
 
         FactionNameLabel.Text = state.FactionName;
         FactionNameLabel.FontColorOverride = color;
         DescriptionLabel.Text = string.IsNullOrWhiteSpace(state.Description)
             ? Loc.GetString("faction-computer-no-description")
             : state.Description;
+
+        if (BeaconCountLabel != null)
+            BeaconCountLabel.Text = Loc.GetString("faction-computer-beacon-count", ("count", state.BeaconCount));
 
         var isLeader = _playerManager.LocalUser is { } user && user == state.OwnerUserId;
         CustomizationButton.Disabled = !isLeader;
@@ -100,58 +105,71 @@ public sealed partial class FactionComputerMenu : FancyWindow
         var row = new PanelContainer
         {
             HorizontalExpand = true,
-            Margin = new Thickness(0, 1),
+            Margin = new Thickness(0, 2),
             PanelOverride = new StyleBoxFlat
             {
                 BackgroundColor = Color.FromHex("#141a22"),
                 BorderColor = Color.FromHex("#1f2a37"),
                 BorderThickness = new Thickness(1),
-                ContentMarginLeftOverride = 6,
-                ContentMarginRightOverride = 6,
-                ContentMarginTopOverride = 3,
-                ContentMarginBottomOverride = 3,
+                ContentMarginLeftOverride = 8,
+                ContentMarginRightOverride = 8,
+                ContentMarginTopOverride = 5,
+                ContentMarginBottomOverride = 5,
             },
         };
 
         var color = FactionUi.GetColor(listing.ColorHex);
-        var box = new BoxContainer
+        var outer = new BoxContainer
         {
             Orientation = BoxContainer.LayoutOrientation.Horizontal,
             HorizontalExpand = true,
             SeparationOverride = 8,
         };
 
-        box.AddChild(new TextureRect
+        outer.AddChild(new TextureRect
         {
             Texture = FactionUi.GetEmblem(_sysMan, listing.PhotoId),
             Modulate = color,
-            MinSize = new Vector2(20, 20),
-            SetSize = new Vector2(20, 20),
+            MinSize = new Vector2(24, 24),
             Stretch = TextureRect.StretchMode.KeepAspectCentered,
             VerticalAlignment = VAlignment.Center,
         });
 
-        var nameBox = new BoxContainer { Orientation = BoxContainer.LayoutOrientation.Vertical, HorizontalExpand = true, SeparationOverride = 0 };
-        nameBox.AddChild(new Label
+        var infoBox = new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Vertical,
+            HorizontalExpand = true,
+            SeparationOverride = 1,
+            VerticalAlignment = VAlignment.Center,
+        };
+        infoBox.AddChild(new Label
         {
             Text = listing.Name,
             FontColorOverride = Color.FromHex("#e2e8f0"),
             ClipText = true,
             HorizontalExpand = true,
         });
-        nameBox.AddChild(new Label
+        infoBox.AddChild(new Label
         {
             Text = Loc.GetString("faction-computer-link-leader", ("name", listing.LeaderName)),
             StyleClasses = { "LabelSubText" },
             FontColorOverride = Color.FromHex("#94a3b8"),
             ClipText = true,
         });
-        box.AddChild(nameBox);
+        outer.AddChild(infoBox);
+
+        // Buttons stacked vertically so they don't overflow the narrow panel.
+        var buttonBox = new BoxContainer
+        {
+            Orientation = BoxContainer.LayoutOrientation.Vertical,
+            SeparationOverride = 3,
+            VerticalAlignment = VAlignment.Center,
+        };
 
         var viewButton = new Button
         {
             Text = Loc.GetString("faction-computer-view"),
-            MinSize = new Vector2(44, 22),
+            MinSize = new Vector2(50, 24),
         };
         viewButton.OnPressed += _ => ShowFactionDetail(listing);
 
@@ -159,16 +177,17 @@ public sealed partial class FactionComputerMenu : FancyWindow
         {
             Text = Loc.GetString("faction-computer-link"),
             Disabled = !canLink,
-            MinSize = new Vector2(44, 22),
+            MinSize = new Vector2(50, 24),
             ToolTip = canLink ? null : Loc.GetString("faction-computer-link-not-member"),
         };
 
         var factionId = listing.Id;
         linkButton.OnPressed += _ => OnLinkRequested?.Invoke(factionId);
 
-        box.AddChild(viewButton);
-        box.AddChild(linkButton);
-        row.AddChild(box);
+        buttonBox.AddChild(viewButton);
+        buttonBox.AddChild(linkButton);
+        outer.AddChild(buttonBox);
+        row.AddChild(outer);
         return row;
     }
 
@@ -198,6 +217,9 @@ public sealed partial class FactionComputerMenu : FancyWindow
 
         if (DetailMembersLabel != null)
             DetailMembersLabel.Text = Loc.GetString("faction-computer-detail-members", ("count", listing.Members.Count));
+
+        if (DetailBeaconCountLabel != null)
+            DetailBeaconCountLabel.Text = Loc.GetString("faction-computer-beacon-count", ("count", listing.BeaconCount));
 
         if (DetailMembersContainer != null)
         {

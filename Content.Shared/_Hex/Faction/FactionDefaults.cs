@@ -12,6 +12,8 @@ public static class FactionDefaults
 
     public const int MaxNameLength = 32;
     public const int MaxDescriptionLength = 240;
+    public const int MaxCustomPhotoBytes = 32768; // 32 KB
+    public const int MaxCustomPhotoDimension = 128;
 
     public const string DefaultColor = "#4ea1ff";
     public const string DefaultPhoto = "shield";

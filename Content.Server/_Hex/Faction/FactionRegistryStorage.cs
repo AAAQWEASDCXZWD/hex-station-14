@@ -82,6 +82,10 @@ public sealed class FactionRecord
     public Guid LeaderUserId;
     public string LeaderCharacterName = string.Empty;
 
+    public bool Hidden;
+
+    public string? CustomPhotoBase64;
+
     public List<FactionMemberRecord> Members = new();
 }
 

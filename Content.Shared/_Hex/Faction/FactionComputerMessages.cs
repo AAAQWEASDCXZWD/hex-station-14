@@ -40,12 +40,14 @@ public sealed class FactionCustomizeMessage : BoundUserInterfaceMessage
     public readonly string Description;
     public readonly string ColorHex;
     public readonly string PhotoId;
+    public readonly byte[]? CustomPhotoData;
 
-    public FactionCustomizeMessage(string name, string description, string colorHex, string photoId)
+    public FactionCustomizeMessage(string name, string description, string colorHex, string photoId, byte[]? customPhotoData = null)
     {
         Name = name;
         Description = description;
         ColorHex = colorHex;
         PhotoId = photoId;
+        CustomPhotoData = customPhotoData;
     }
 }

@@ -60,4 +60,23 @@ public static class FactionUi
             ContentMarginBottomOverride = 2,
         };
     }
+
+    /// <summary>
+    ///     Loads a texture from raw PNG bytes (e.g. a custom faction flag).
+    /// </summary>
+    public static Texture? LoadTextureFromBytes(byte[]? data)
+    {
+        if (data == null || data.Length == 0)
+            return null;
+
+        try
+        {
+            using var stream = new System.IO.MemoryStream(data);
+            return Texture.LoadFromPNGStream(stream);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

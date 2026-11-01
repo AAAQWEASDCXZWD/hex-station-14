@@ -17,7 +17,7 @@ public sealed class HexGridNameSystem : EntitySystem
     [Dependency] private readonly IPlayerManager _player = default!;
     [Dependency] private readonly IPrototypeManager _prototype = default!;
 
-    private readonly Dictionary<HexCoordinates, string> _names = new();
+    private readonly Dictionary<HexCoordinates, (string Name, string? ColorHex)> _hexData = new();
 
     public override void Initialize()
     {
@@ -30,10 +30,26 @@ public sealed class HexGridNameSystem : EntitySystem
         _player.PlayerStatusChanged -= OnPlayerStatusChanged;
     }
 
+    public void SetHex(HexCoordinates coordinates, string name, string? colorHex = null)
+    {
+        if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(colorHex))
+            _hexData.Remove(coordinates);
+        else
+            _hexData[coordinates] = (name, colorHex);
+
+        RaiseNetworkEvent(GetNamesUpdatedEvent());
+    }
+
     public void SetName(HexCoordinates coordinates, string name)
     {
-        _names[coordinates] = name;
-        RaiseNetworkEvent(GetNamesUpdatedEvent());
+        var existingColor = _hexData.TryGetValue(coordinates, out var data) ? data.ColorHex : null;
+        SetHex(coordinates, name, existingColor);
+    }
+
+    public void SetColor(HexCoordinates coordinates, string? colorHex)
+    {
+        var existingName = _hexData.TryGetValue(coordinates, out var data) ? data.Name : string.Empty;
+        SetHex(coordinates, existingName, colorHex);
     }
 
     private void OnPlayerStatusChanged(object? sender, SessionStatusEventArgs args)
@@ -47,14 +63,14 @@ public sealed class HexGridNameSystem : EntitySystem
         foreach (var set in _prototype.EnumeratePrototypes<HexNameSetPrototype>())
         {
             foreach (var hex in set.Hexes)
-                _names[new HexCoordinates(hex.Q, hex.R)] = hex.Name;
+                _hexData[new HexCoordinates(hex.Q, hex.R)] = (hex.Name, null);
         }
     }
 
     private HexGridNamesUpdatedEvent GetNamesUpdatedEvent()
     {
-        var names = _names
-            .Select(pair => new HexGridName(pair.Key.Q, pair.Key.R, pair.Value))
+        var names = _hexData
+            .Select(pair => new HexGridName(pair.Key.Q, pair.Key.R, pair.Value.Name, pair.Value.ColorHex))
             .ToList();
         return new HexGridNamesUpdatedEvent(names);
     }
