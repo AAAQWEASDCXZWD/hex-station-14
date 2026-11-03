@@ -247,7 +247,7 @@ namespace Content.Client.Construction
             if (!args.EntityUid.IsValid() || !IsClientSide(args.EntityUid))
                 return false;
 
-            if (!HasComp<ConstructionGhostComponent>(args.EntityUid))
+            if (!TryComp<ConstructionGhostComponent>(args.EntityUid, out var ghost) || ghost.Prototype == null)
                 return false;
 
             TryStartConstruction(args.EntityUid);

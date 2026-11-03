@@ -1,0 +1,38 @@
+- type: entity
+  parent: BasePaper
+  id: NFShuttleBlueprint
+  name: shuttle blueprint
+  description: A holographic blueprint of a shuttle grid. Use it in your hand to project the grid at a target location.
+  categories: [ HideSpawnMenu, DoNotMap ]
+  components:
+  - type: Sprite
+    sprite: _NF/Objects/Tools/blueprints.rsi
+    layers:
+    - state: icon-base
+      color: "#d9534f"
+    - state: icon-text
+      color: "#4f7fd9"
+  - type: Item
+    size: Normal
+    sprite: _NF/Objects/Tools/blueprints.rsi
+    inhandVisuals:
+      left:
+      - state: inhand-left-base
+        color: "#d9534f"
+      - state: inhand-left-text
+        color: "#4f7fd9"
+      right:
+      - state: inhand-right-base
+        color: "#d9534f"
+      - state: inhand-right-text
+        color: "#4f7fd9"
+  - type: PhysicalComposition
+    materialComposition:
+      Paper: 100
+  - type: StaticPrice
+    price: 100
+  - type: ShipBlueprint
+  - type: Tag
+    tags:
+    - Document
+    - Paper

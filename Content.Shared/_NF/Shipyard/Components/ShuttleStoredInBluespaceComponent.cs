@@ -1,3 +1,4 @@
+using Content.Shared._Hex.Shipyard.Components;
 using Robust.Shared.GameStates;
 
 namespace Content.Shared._NF.Shipyard.Components;
@@ -19,4 +20,12 @@ public sealed partial class ShuttleStoredInBluespaceComponent : Component
 
     [DataField, AutoNetworkedField]
     public byte[]? PhotoData;
+
+    /// <summary>
+    /// Snapshot captured before the shuttle is moved to the paused bluespace storage map. Keeping it
+    /// server-side avoids depending on entities being initialized in the storage world when a
+    /// blueprint is printed later.
+    /// </summary>
+    [DataField]
+    public GridBlueprintData? BlueprintData;
 }

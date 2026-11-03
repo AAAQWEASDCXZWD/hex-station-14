@@ -1,0 +1,37 @@
+- type: entity
+  id: MassAnchor
+  parent: BaseStructure
+  name: station anchor
+  suffix: Mass
+  description: Makes the grid it is anchored to heavier and increases its friction. Multiple anchors stack multiplicatively.
+  placement:
+    mode: AlignTileAny
+  components:
+  - type: MassAnchor
+    massMultiplier: 1.3333334 # 1/3 heavier per anchor, stacking multiplicatively
+    frictionMultiplier: 1.3333334 # 1/3 more friction per anchor, stacking multiplicatively
+    toggleDelay: 10
+  - type: Anchorable
+  - type: InteractionOutline
+  - type: Sprite
+    sprite: Structures/Walls/debug.rsi
+    state: full
+  - type: Fixtures
+    fixtures:
+      fix1:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.7,-0.7,0.7,0.7"
+        density: 190
+        mask:
+        - LargeMobMask
+        layer:
+        - WallLayer
+
+- type: entity
+  parent: MassAnchor
+  id: MassAnchorOff
+  suffix: Mass, Off
+  components:
+  - type: MassAnchor
+    switchedOn: false

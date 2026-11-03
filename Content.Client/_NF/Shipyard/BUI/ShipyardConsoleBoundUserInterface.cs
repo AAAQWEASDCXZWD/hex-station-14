@@ -1,4 +1,5 @@
 using Content.Client._NF.Shipyard.UI;
+using Content.Shared._Hex.Shipyard.Events;
 using Content.Shared.Containers.ItemSlots;
 using Content.Shared._NF.Shipyard.BUI;
 using Content.Shared._NF.Shipyard.Events;
@@ -91,6 +92,7 @@ public sealed class ShipyardConsoleBoundUserInterface : BoundUserInterface
             _bluespaceMenu = new ShipyardBluespaceMenu();
             _bluespaceMenu.OnStoreRequested += uid => SendMessage(new ShipyardConsoleStoreMessage(uid));
             _bluespaceMenu.OnRecallRequested += uid => SendMessage(new ShipyardConsoleRecallMessage(uid));
+            _bluespaceMenu.OnPrintBlueprintRequested += uid => SendMessage(new ShipyardConsolePrintBlueprintMessage(uid));
         }
 
         _bluespaceMenu.OpenCentered();

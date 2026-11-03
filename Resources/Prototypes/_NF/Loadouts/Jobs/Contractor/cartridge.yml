@@ -34,3 +34,12 @@
   price: 1000
   cartridges:
   - LogProbeCartridge
+
+- type: loadout
+  id: ContractorInternetCartridge
+  effects:
+  - !type:GroupLoadoutEffect
+    proto: ContractorT1
+  price: 1000
+  cartridges:
+  - InternetCartridge

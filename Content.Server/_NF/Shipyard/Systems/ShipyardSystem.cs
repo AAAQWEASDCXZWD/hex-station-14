@@ -6,6 +6,8 @@ using Content.Server.Cargo.Systems;
 using Content.Server.Shuttles.Components;
 using Content.Server.Shuttles.Systems;
 using Content.Server.Station.Systems;
+using Content.Shared._Hex.Shipyard.Components;
+using Content.Shared._Hex.Shipyard.Events;
 using Content.Shared._NF.Shipyard.Prototypes;
 using Content.Server._NF.Station.Components;
 using Content.Shared.GameTicking;
@@ -22,6 +24,7 @@ using Robust.Shared.Configuration;
 using Robust.Shared.Containers;
 using Robust.Shared.EntitySerialization.Systems;
 using Robust.Shared.Map;
+using Robust.Shared.Map.Components;
 using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Systems;
 using Robust.Shared.Player;
@@ -138,6 +141,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleStoreMessage>(OnStoreMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardShuttlePhotoMessage>(OnShuttlePhotoMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleRecallMessage>(OnRecallMessage);
+        SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsolePrintBlueprintMessage>(OnPrintBlueprintMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntInsertedIntoContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntRemovedFromContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<RoundRestartCleanupEvent>(OnRoundRestart);
@@ -568,6 +572,13 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
             _physics.SetAngularVelocity(shuttleUid, 0f, body: physics);
         }
 
+        // Capture the blueprint while the shuttle is still in the active world. Entities in the
+        // paused storage map may not be initialized the same way, and blueprint printing should not
+        // depend on whether the storage world is currently being simulated.
+        GridBlueprintData? blueprintData = null;
+        if (TryComp<MapGridComponent>(shuttleUid, out var blueprintGrid))
+            blueprintData = BuildBlueprintData(shuttleUid, blueprintGrid);
+
         try
         {
             SetupBluespaceStorageIfNeeded();
@@ -586,6 +597,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         stored.StoredTime = _timing.CurTime;
         stored.StationUid = stationUid;
         stored.StoredBy = Name(playerUid);
+        stored.BlueprintData = blueprintData;
 
         if (TryComp<ShuttleDeedComponent>(shuttleUid, out var deedShuttle))
         {

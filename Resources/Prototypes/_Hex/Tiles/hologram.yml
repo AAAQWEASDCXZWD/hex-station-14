@@ -1,0 +1,9 @@
+- type: tile
+  id: HologramFloor
+  name: tiles-hologram
+  sprite: /Textures/_Hex/Tiles/hologram_tile.png
+  isSubfloor: false
+  isSpace: false
+  sturdy: false
+  friction: 1
+  heatCapacity: 10000

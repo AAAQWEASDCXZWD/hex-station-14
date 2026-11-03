@@ -24,6 +24,7 @@ namespace Content.Server.Entry
             // Frontier: Custom client-only components
             "BlueprintLatheClientState",
             "MarkerLayers",
+            "GridHologram",
             // End Frontier
         };
     }

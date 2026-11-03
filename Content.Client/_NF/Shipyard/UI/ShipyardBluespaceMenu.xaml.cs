@@ -22,6 +22,7 @@ public sealed partial class ShipyardBluespaceMenu : FancyWindow
 
     public event Action<NetEntity>? OnStoreRequested;
     public event Action<NetEntity>? OnRecallRequested;
+    public event Action<NetEntity>? OnPrintBlueprintRequested;
 
     private TimeSpan _cooldownEndTime = TimeSpan.Zero;
     private ShipyardConsoleInterfaceState? _lastState;
@@ -219,6 +220,16 @@ public sealed partial class ShipyardBluespaceMenu : FancyWindow
             var netUid = shuttle.ShuttleUid;
             recallButton.OnPressed += _ => OnRecallRequested?.Invoke(netUid);
             mainBox.AddChild(recallButton);
+
+            var blueprintButton = new Button
+            {
+                Text = Loc.GetString("shipyard-bluespace-menu-button-print-blueprint"),
+                Disabled = !hasCaptainAccess,
+                HorizontalExpand = true,
+                MinHeight = 32
+            };
+            blueprintButton.OnPressed += _ => OnPrintBlueprintRequested?.Invoke(netUid);
+            mainBox.AddChild(blueprintButton);
         }
         else if (isDocked)
         {

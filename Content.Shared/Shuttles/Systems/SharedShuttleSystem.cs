@@ -45,11 +45,45 @@ public abstract partial class SharedShuttleSystem : EntitySystem
 
     private void OnGridFixtureChange(EntityUid uid, FixturesComponent manager, GridFixtureChangeEvent args)
     {
+        var density = TileDensityMultiplier;
+
+        if (TryComp<GridMassComponent>(uid, out var gridMass))
+            density *= gridMass.MassMultiplier;
+
         foreach (var fixture in args.NewFixtures)
         {
-            Physics.SetDensity(uid, fixture.Key, fixture.Value, TileDensityMultiplier, false, manager);
+            Physics.SetDensity(uid, fixture.Key, fixture.Value, density, false, manager);
             Fixtures.SetRestitution(uid, fixture.Key, fixture.Value, 0.1f, false, manager);
         }
+    }
+
+    /// <summary>
+    /// Sets the mass and friction multipliers of a grid, scaling the density of every fixture on it.
+    /// New fixtures created afterwards will also use the mass multiplier.
+    /// </summary>
+    public void SetGridMassMultiplier(EntityUid grid, float multiplier, float frictionMultiplier = 1f)
+    {
+        if (!float.IsFinite(multiplier) || multiplier <= 0f ||
+            !float.IsFinite(frictionMultiplier) || frictionMultiplier <= 0f)
+        {
+            return;
+        }
+
+        var gridMass = EnsureComp<GridMassComponent>(grid);
+        var massChanged = !MathHelper.CloseTo(gridMass.MassMultiplier, multiplier);
+
+        gridMass.MassMultiplier = multiplier;
+        gridMass.FrictionMultiplier = frictionMultiplier;
+
+        if (!massChanged || !TryComp<FixturesComponent>(grid, out var fixtures))
+            return;
+
+        var density = TileDensityMultiplier * multiplier;
+
+        foreach (var pair in fixtures.Fixtures)
+            Physics.SetDensity(grid, pair.Key, pair.Value, density, false, fixtures);
+
+        Fixtures.FixtureUpdate(grid, manager: fixtures);
     }
 
     /// <summary>

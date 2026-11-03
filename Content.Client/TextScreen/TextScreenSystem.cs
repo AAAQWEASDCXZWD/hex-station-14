@@ -226,7 +226,8 @@ public sealed class TextScreenSystem : VisualizerSystem<TextScreenVisualsCompone
 
             for (var chr = 0; chr < min; chr++)
             {
-                component.LayerStatesToDraw[TextMapKey + rowIdx + chr] = GetStateFromChar(row[chr]);
+                component.LayerStatesToDraw[TextMapKey + rowIdx + chr] =
+                    GetStateFromChar(row[chr]) ?? DefaultState;
                 SpriteSystem.LayerSetOffset(
                     (uid, sprite),
                     TextMapKey + rowIdx + chr,
@@ -257,7 +258,7 @@ public sealed class TextScreenSystem : VisualizerSystem<TextScreenVisualsCompone
 
         for (var i = 0; i < min; i++)
         {
-            timer.LayerStatesToDraw[TimerMapKey + i] = GetStateFromChar(time[i]);
+            timer.LayerStatesToDraw[TimerMapKey + i] = GetStateFromChar(time[i]) ?? DefaultState;
             SpriteSystem.LayerSetOffset(
                 (uid, sprite),
                 TimerMapKey + i,
@@ -277,8 +278,23 @@ public sealed class TextScreenSystem : VisualizerSystem<TextScreenVisualsCompone
         if (!Resolve(uid, ref sprite))
             return;
 
-        foreach (var (key, state) in layerStates.Where(pairs => pairs.Value != null))
+        foreach (var (key, rawState) in layerStates.Where(pairs => pairs.Value != null))
+        {
+            if (rawState == null || !SpriteSystem.TryGetLayer((uid, sprite), key, out var layer, false))
+                continue;
+
+            var state = rawState!;
+
+            // Text screens are often localized, but the font RSI only contains Latin characters.
+            // Fall back to a blank glyph instead of asking the sprite system for a missing state.
+            if (layer!.ActualRsi is not { } rsi)
+                continue;
+
+            if (!rsi.TryGetState(state, out _))
+                state = DefaultState;
+
             SpriteSystem.LayerSetRsiState((uid, sprite), key, state);
+        }
     }
 
     public override void Update(float frameTime)
@@ -344,9 +360,10 @@ public sealed class TextScreenSystem : VisualizerSystem<TextScreenVisualsCompone
         if (CharStatePairs.TryGetValue(character.Value, out var value))
             return value;
 
-        // Or else it checks if its a normal letter or digit
-        if (char.IsLetterOrDigit(character.Value))
-            return character.Value.ToString().ToLower();
+        // The RSI only contains Latin letters and digits. Other scripts (e.g. Cyrillic in translated
+        // screen text) must render as blank instead of an invalid sprite state.
+        if (character.Value is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9')
+            return char.ToLowerInvariant(character.Value).ToString();
 
         return null;
     }

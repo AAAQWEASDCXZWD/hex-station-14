@@ -2,6 +2,7 @@ using System.Linq;
 using Content.Server.Explosion.EntitySystems;
 using Content.Server.Shuttles.Systems;
 using Content.Shared._Hex.Faction;
+using Content.Shared._NF.Shipyard.Components;
 using Content.Shared.Construction.Components;
 using Content.Shared.Destructible;
 using Content.Shared.HexGrid;
@@ -51,6 +52,11 @@ public sealed class StationBeaconSystem : EntitySystem
     private readonly HashSet<EntityUid> _claimedBeacons = new();
 
     /// <summary>
+    ///     Beacons whose map was paused (for example, a shuttle parked in Bluespace storage).
+    /// </summary>
+    private readonly HashSet<EntityUid> _pausedBeacons = new();
+
+    /// <summary>
     ///     Original grid name and IFF state, so a grid can be restored when its last beacon stops being active.
     /// </summary>
     private readonly Dictionary<EntityUid, GridPresentation> _gridPresentations = new();
@@ -67,6 +73,7 @@ public sealed class StationBeaconSystem : EntitySystem
 
         SubscribeLocalEvent<StationBeaconComponent, ComponentStartup>(OnStartup);
         SubscribeLocalEvent<StationBeaconComponent, ComponentShutdown>(OnShutdown);
+        SubscribeLocalEvent<StationBeaconComponent, EntityPausedEvent>(OnPaused);
         SubscribeLocalEvent<StationBeaconComponent, AnchorStateChangedEvent>(OnAnchorChanged);
         SubscribeLocalEvent<StationBeaconComponent, UserAnchoredEvent>(OnUserAnchored);
         SubscribeLocalEvent<StationBeaconComponent, DestructionEventArgs>(OnDestroyed);
@@ -97,6 +104,23 @@ public sealed class StationBeaconSystem : EntitySystem
                 !comp.HasClaim)
             {
                 _claimedBeacons.Remove(uid);
+                _pausedBeacons.Remove(uid);
+                continue;
+            }
+
+            // Paused maps (Bluespace storage, paused shuttles, etc.) move grids without the beacon actually
+            // leaving its sector. Do not explode there; when the map resumes, re-anchor the claim to the
+            // grid's new location instead.
+            var xform = Transform(uid);
+            if (IsPausedOrStored(uid, xform))
+            {
+                _pausedBeacons.Add(uid);
+                continue;
+            }
+
+            if (_pausedBeacons.Remove(uid))
+            {
+                RelocateClaim(uid, comp, xform);
                 continue;
             }
 
@@ -135,6 +159,12 @@ public sealed class StationBeaconSystem : EntitySystem
         ReleaseClaim(uid, comp);
     }
 
+    private void OnPaused(EntityUid uid, StationBeaconComponent comp, ref EntityPausedEvent args)
+    {
+        if (comp.HasClaim)
+            _pausedBeacons.Add(uid);
+    }
+
     private void OnMoved(EntityUid uid, StationBeaconComponent comp, ref MoveEvent args)
     {
         if (!comp.HasClaim || TerminatingOrDeleted(uid))
@@ -144,6 +174,12 @@ public sealed class StationBeaconSystem : EntitySystem
         // check validate the final position instead of exploding during the transfer.
         if (args.ParentChanged)
             return;
+
+        if (IsPausedOrStored(uid, args.Component))
+        {
+            _pausedBeacons.Add(uid);
+            return;
+        }
 
         if (IsInsideClaim(uid, comp, args.Component))
             return;
@@ -269,6 +305,46 @@ public sealed class StationBeaconSystem : EntitySystem
         _sawmill.Info($"Station beacon {uid} activated at {hex} for faction {comp.FactionId}.");
     }
 
+    private bool IsPausedOrStored(EntityUid uid, TransformComponent xform)
+    {
+        if (Paused(uid))
+            return true;
+
+        return xform.GridUid != null &&
+               HasComp<ShuttleStoredInBluespaceComponent>(xform.GridUid.Value);
+    }
+
+    /// <summary>
+    ///     Moves an existing claim to the beacon's current sector after its map resumed from a paused state.
+    /// </summary>
+    private void RelocateClaim(EntityUid uid, StationBeaconComponent comp, TransformComponent xform)
+    {
+        var hex = HexMath.GetCoordinates(_transform.GetMapCoordinates(uid, xform).Position);
+        if (hex.Q == comp.HexQ && hex.R == comp.HexR)
+            return;
+
+        var oldHex = new HexCoordinates(comp.HexQ, comp.HexR);
+        if (_hexClaims.TryGetValue(oldHex, out var claims) && claims.Remove(uid) && claims.Count == 0)
+            _hexClaims.Remove(oldHex);
+
+        comp.HexQ = hex.Q;
+        comp.HexR = hex.R;
+        Dirty(uid, comp);
+
+        _sawmill.Info($"Station beacon {uid} resumed from a paused map; claim moved to {hex}.");
+
+        if (comp.Active && !IsHeldByAnotherFaction(hex, comp.FactionId, uid))
+        {
+            AddActiveClaim(uid, comp, hex);
+        }
+        else
+        {
+            comp.Active = false;
+            Dirty(uid, comp);
+            SendUiState(uid, comp);
+        }
+    }
+
     private bool IsInsideClaim(EntityUid uid, StationBeaconComponent comp, TransformComponent xform)
     {
         var mapCoordinates = _transform.GetMapCoordinates(uid, xform);
@@ -349,6 +425,7 @@ public sealed class StationBeaconSystem : EntitySystem
             ReleaseActiveClaim(uid, comp);
 
         _claimedBeacons.Remove(uid);
+        _pausedBeacons.Remove(uid);
         comp.Active = false;
         comp.HasClaim = false;
 
@@ -605,6 +682,7 @@ public sealed class StationBeaconSystem : EntitySystem
         base.Shutdown();
         _hexClaims.Clear();
         _claimedBeacons.Clear();
+        _pausedBeacons.Clear();
         _gridPresentations.Clear();
     }
 }

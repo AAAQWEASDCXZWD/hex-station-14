@@ -1,0 +1,20 @@
+- type: entity
+  parent: NFBasePDACartridge
+  id: InternetCartridge
+  name: Internet cartridge
+  description: A program for browsing the sector's Internet. Posts, topics and chats included.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-y
+  - type: Icon
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-y
+  - type: UIFragment
+    ui: !type:InternetUi
+  - type: Cartridge
+    programName: internet-program-name
+    icon:
+      sprite: _Hex/Interface/Faction/emblems.rsi
+      state: circle
+  - type: InternetCartridge

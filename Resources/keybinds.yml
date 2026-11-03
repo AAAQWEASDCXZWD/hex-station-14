@@ -1,4 +1,4 @@
-﻿version: 1 # Not used right now, whatever.
+version: 1 # Not used right now, whatever.
 binds:
 - function: UIClick
   type: State
@@ -631,6 +631,9 @@ binds:
   type: State
   key: MouseRight
   canFocus: true
+- function: ToggleShipBlueprintHologram
+  type: State
+  key: M
 # region Frontier
 - function: SwapHandsPrevious
   type: State
