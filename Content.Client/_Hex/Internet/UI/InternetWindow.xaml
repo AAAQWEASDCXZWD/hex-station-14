@@ -1,17 +1,7 @@
 <ui:InternetWindow xmlns="https://spacestation14.io"
                    xmlns:ui="clr-namespace:Content.Client._Hex.Internet.UI"
-                   xmlns:gfx="clr-namespace:Robust.Client.Graphics;assembly=Robust.Client"
                    HorizontalExpand="True"
                    VerticalExpand="True">
-    <PanelContainer.PanelOverride>
-        <gfx:StyleBoxFlat BackgroundColor="#082022"
-                          BorderColor="#2a8f88"
-                          BorderThickness="1"
-                          ContentMarginLeftOverride="6"
-                          ContentMarginRightOverride="6"
-                          ContentMarginTopOverride="6"
-                          ContentMarginBottomOverride="6"/>
-    </PanelContainer.PanelOverride>
     <BoxContainer Orientation="Vertical"
                   HorizontalExpand="True"
                   VerticalExpand="True"
@@ -43,6 +33,21 @@
                           HorizontalExpand="True"
                           SeparationOverride="4"/>
         </ScrollContainer>
+        <BoxContainer Name="DarknetAliasRow"
+                      Orientation="Horizontal"
+                      HorizontalExpand="True"
+                      SeparationOverride="4"
+                      Visible="False">
+            <Label Name="DarknetAliasLabel"
+                   StyleClasses="LabelSubText"
+                   FontColorOverride="#5fa8a2"
+                   VerticalAlignment="Center"/>
+            <LineEdit Name="DarknetAliasEdit"
+                      HorizontalExpand="True"
+                      MinSize="0 24"/>
+            <Button Name="DarknetAliasButton"
+                    MinSize="0 24"/>
+        </BoxContainer>
         <BoxContainer Name="FooterRow"
                       Orientation="Horizontal"
                       HorizontalExpand="True"

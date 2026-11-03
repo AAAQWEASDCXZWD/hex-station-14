@@ -1,6 +1,11 @@
 internet-program-name = Інтернет
+darknet-program-name = Даркнет
+admin-internet-program-name = Інтернет (адмін)
+admin-darknet-program-name = Даркнет (адмін)
 
 internet-title = Інтернет
+darknet-title = Даркнет
+internet-admin-badge = [АДМІН]
 internet-post-title = Допис
 internet-chat-title = Чат
 internet-tab-feed = Потік
@@ -20,11 +25,15 @@ internet-open-tooltip = Відкрити
 internet-topic-child-count =
     { $count ->
         [one] {$count} об'єкт
+        [few] {$count} об'єкти
+        [many] {$count} об'єктів
        *[other] {$count} об'єктів
     }
 internet-chat-message-count =
     { $count ->
         [one] {$count} повідомлення
+        [few] {$count} повідомлення
+        [many] {$count} повідомлень
        *[other] {$count} повідомлень
     }
 
@@ -38,9 +47,10 @@ internet-title-label = Заголовок
 internet-title-placeholder = Про що це?
 internet-body-label = Текст
 internet-image-label = Зображення
-internet-image-none = Немає
-internet-image-none-tooltip = Не додавати зображення
-internet-image-tooltip = Додати {$name}
+internet-image-upload = Прикріпити зображення...
+internet-image-remove = Видалити зображення
+internet-image-too-large = Зображення завелике (макс. {$max} КБ).
+internet-image-error = Не вдалося прочитати це зображення.
 internet-submit = Опублікувати
 internet-save = Зберегти
 internet-cancel = Скасувати
@@ -70,6 +80,17 @@ internet-time-days = {$count} дн тому
 internet-footer-no-id = Вставте ID-картку в КПК, щоб публікувати.
 internet-footer-id-mismatch = Ім'я на ID-картці має збігатися з ім'ям персонажа.
 internet-footer-id = Публікація від {$name}
+darknet-footer-no-alias = Спочатку встановіть псевдонім Даркнету.
+darknet-footer-alias = Публікація як {$name}
+
+darknet-alias-label = Псевдонім
+darknet-alias-placeholder = Введіть будь-яке ім'я
+darknet-alias-set = Встановити
+
+internet-delete = Видалити
+internet-delete-confirm = Підтвердити видалення
+internet-admin-delete-user = Видалити всі дописи від {$name}
+internet-admin-delete-user-confirm = Підтвердити видалення всіх дописів від {$name}
 
 internet-popup-no-id = У КПК не вставлено ID-картку.
 internet-popup-id-mismatch = Ім'я на ID-картці має збігатися з ім'ям персонажа.
@@ -80,3 +101,8 @@ internet-popup-too-deep = Теми не можна вкладати глибше
 internet-popup-comment-too-deep = Ця відповідь вкладена занадто глибоко.
 internet-popup-limit = Інтернет переповнений. Спробуйте пізніше.
 internet-popup-not-author = Лише оригінальний автор може редагувати цей допис.
+internet-popup-image-invalid = Це зображення недійсне.
+internet-popup-image-budget = В Інтернеті більше немає місця для зображень.
+internet-popup-admin-only = Потрібні права адміністратора.
+darknet-popup-no-alias = Спочатку встановіть псевдонім Даркнету на ID-картці.
+darknet-popup-alias-required = Псевдонім не може бути порожнім.

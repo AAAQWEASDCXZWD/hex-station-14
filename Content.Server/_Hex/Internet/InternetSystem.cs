@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Content.Server.Access.Systems;
 using Content.Server.Administration.Logs;
+using Content.Server.Administration.Managers;
 using Content.Server.CartridgeLoader;
 using Content.Server.Popups;
 using Content.Shared._Hex.Internet;
@@ -10,7 +11,10 @@ using Content.Shared.Access.Components;
 using Content.Shared.CartridgeLoader;
 using Content.Shared.Database;
 using Content.Shared.GameTicking;
+using Content.Shared.PDA;
+using Robust.Server.GameObjects;
 using Robust.Server.Player;
+using Robust.Shared.Containers;
 using Robust.Shared.Network;
 using Robust.Shared.Player;
 using Robust.Shared.Timing;
@@ -18,31 +22,34 @@ using Robust.Shared.Timing;
 namespace Content.Server._Hex.Internet;
 
 /// <summary>
-///     The shared, round-scoped "Internet" shown by the Internet cartridge.
+///     Shared, round-scoped Internet and Darknet networks shown by the corresponding cartridges.
 /// </summary>
 /// <remarks>
-///     The feed is intentionally not stored on the cartridge itself: every PDA with the program has to
-///     see the same posts, comments and chats. The data is kept in memory for the duration of a round.
+///     The networks are stored separately and never share posts, topics, comments or identities.
+///     Internet posts require an ID card matching the character; Darknet posts use an alias bound
+///     to the ID card.
 /// </remarks>
 public sealed class InternetSystem : EntitySystem
 {
     [Dependency] private readonly CartridgeLoaderSystem _cartridge = default!;
     [Dependency] private readonly IdCardSystem _idCards = default!;
     [Dependency] private readonly IAdminLogManager _adminLogger = default!;
+    [Dependency] private readonly IAdminManager _admin = default!;
     [Dependency] private readonly IGameTiming _timing = default!;
     [Dependency] private readonly IPlayerManager _player = default!;
     [Dependency] private readonly PopupSystem _popup = default!;
+    [Dependency] private readonly UserInterfaceSystem _ui = default!;
 
     private static readonly TimeSpan WriteCooldown = TimeSpan.FromMilliseconds(500);
 
-    private readonly List<InternetPost> _posts = new();
-    private readonly Dictionary<int, InternetPost> _postsById = new();
-    private readonly HashSet<EntityUid> _openLoaders = new();
-    private readonly Dictionary<NetUserId, TimeSpan> _nextWrite = new();
+    private readonly Dictionary<InternetNetwork, NetworkState> _networks = new()
+    {
+        [InternetNetwork.Internet] = new NetworkState(),
+        [InternetNetwork.Darknet] = new NetworkState(),
+    };
 
-    private int _nextPostId = 1;
-    private int _nextCommentId = 1;
-    private int _nextMessageId = 1;
+    private readonly HashSet<EntityUid> _openLoaders = new();
+    private readonly Dictionary<(InternetNetwork Network, NetUserId UserId), TimeSpan> _nextWrite = new();
 
     public override void Initialize()
     {
@@ -54,6 +61,8 @@ public sealed class InternetSystem : EntitySystem
         SubscribeLocalEvent<InternetCartridgeComponent, CartridgeUiReadyEvent>(OnUiReady);
         SubscribeLocalEvent<InternetCartridgeComponent, CartridgeMessageEvent>(OnMessage);
         SubscribeLocalEvent<RoundRestartCleanupEvent>(OnRoundRestartCleanup);
+        SubscribeLocalEvent<EntInsertedIntoContainerMessage>(OnIdCardInserted);
+        SubscribeLocalEvent<EntRemovedFromContainerMessage>(OnIdCardRemoved);
     }
 
     #region Cartridge lifecycle
@@ -76,18 +85,44 @@ public sealed class InternetSystem : EntitySystem
     private void OnUiReady(EntityUid uid, InternetCartridgeComponent component, CartridgeUiReadyEvent args)
     {
         _openLoaders.Add(args.Loader);
-        SendState(args.Loader);
+        SendState(args.Loader, program: component);
     }
 
     private void OnRoundRestartCleanup(RoundRestartCleanupEvent args)
     {
-        _posts.Clear();
-        _postsById.Clear();
+        foreach (var state in _networks.Values)
+            state.Reset();
+
         _openLoaders.Clear();
         _nextWrite.Clear();
-        _nextPostId = 1;
-        _nextCommentId = 1;
-        _nextMessageId = 1;
+    }
+
+    private void OnIdCardInserted(EntInsertedIntoContainerMessage args)
+    {
+        UpdateForIdCardChange(args.Container);
+    }
+
+    private void OnIdCardRemoved(EntRemovedFromContainerMessage args)
+    {
+        UpdateForIdCardChange(args.Container);
+    }
+
+    private void UpdateForIdCardChange(BaseContainer container)
+    {
+        if (container.ID != PdaComponent.PdaIdSlotId)
+            return;
+
+        var loader = container.Owner;
+        if (!TryComp<CartridgeLoaderComponent>(loader, out var loaderComp) ||
+            loaderComp.ActiveProgram is not { } program ||
+            !HasComp<InternetCartridgeComponent>(program))
+        {
+            return;
+        }
+
+        // The PDA's cached ContainedId is updated by its own handler. Defer one tick so the
+        // refreshed state sees the new card.
+        Timer.Spawn(0, () => SendState(loader));
     }
 
     #endregion
@@ -99,22 +134,31 @@ public sealed class InternetSystem : EntitySystem
         switch (args)
         {
             case InternetCreatePostMessage create:
-                CreatePost(create);
+                CreatePost(create, component.Network);
                 break;
             case InternetEditPostMessage edit:
-                EditPost(edit);
+                EditPost(edit, component.Network, component.Admin);
+                break;
+            case InternetDeletePostMessage delete:
+                DeletePost(delete, component.Network, component.Admin);
                 break;
             case InternetLikePostMessage like:
-                LikePost(like);
+                LikePost(like, component.Network);
                 break;
             case InternetCreateCommentMessage comment:
-                CreateComment(comment);
+                CreateComment(comment, component.Network);
                 break;
             case InternetLikeCommentMessage likeComment:
-                LikeComment(likeComment);
+                LikeComment(likeComment, component.Network);
                 break;
             case InternetSendChatMessage chat:
-                SendChatMessage(chat);
+                SendChatMessage(chat, component.Network);
+                break;
+            case InternetSetAliasMessage alias:
+                SetAlias(alias, component.Network);
+                break;
+            case InternetAdminDeleteUserPostsMessage purge:
+                AdminDeleteUserPosts(purge, component.Network, component.Admin);
                 break;
             case InternetRefreshMessage refresh:
                 SendState(GetEntity(refresh.LoaderUid));
@@ -122,18 +166,21 @@ public sealed class InternetSystem : EntitySystem
         }
     }
 
-    private void CreatePost(InternetCreatePostMessage message)
+    private void CreatePost(InternetCreatePostMessage message, InternetNetwork network)
     {
-        if (!TryGetAuthor(message, out var actor, out var userId, out var userName, out var characterName, out var idCardName))
+        if (!TryGetViewerContext(message, out var viewer))
             return;
 
-        if (!TryConsumeWrite(userId))
+        if (!TryConsumeWrite(network, viewer.UserId))
             return;
 
-        var title = (message.Title ?? string.Empty).Trim();
+        if (!Enum.IsDefined(typeof(InternetPostType), message.Type))
+            return;
+
+        var title = NormalizeTitle(message.Title);
         if (title.Length == 0)
         {
-            Reject(actor, "internet-popup-title-required");
+            Reject(viewer.Actor, "internet-popup-title-required");
             return;
         }
 
@@ -144,77 +191,92 @@ public sealed class InternetSystem : EntitySystem
         if (body.Length > InternetDefaults.MaxBodyLength)
             body = body[..InternetDefaults.MaxBodyLength];
 
+        var state = GetState(network);
         InternetPost? parent = null;
         if (message.ParentId != 0)
         {
-            if (!_postsById.TryGetValue(message.ParentId, out var foundParent))
+            if (!state.PostsById.TryGetValue(message.ParentId, out var foundParent))
                 return;
 
             if (foundParent.Type != InternetPostType.Topic)
             {
-                Reject(actor, "internet-popup-invalid-parent");
+                Reject(viewer.Actor, "internet-popup-invalid-parent");
                 return;
             }
 
-            if (GetDepth(foundParent) + 1 > InternetDefaults.MaxTopicDepth)
+            // Only nested topics count towards the depth limit; posts and chats may live inside
+            // the deepest allowed topic.
+            if (message.Type == InternetPostType.Topic &&
+                GetDepth(state, foundParent) + 1 > InternetDefaults.MaxTopicDepth)
             {
-                Reject(actor, "internet-popup-too-deep");
+                Reject(viewer.Actor, "internet-popup-too-deep");
                 return;
             }
 
             parent = foundParent;
         }
 
-        if (_posts.Count >= InternetDefaults.MaxPosts)
+        if (state.Posts.Count >= InternetDefaults.MaxPosts)
         {
-            Reject(actor, "internet-popup-limit");
+            Reject(viewer.Actor, "internet-popup-limit");
             return;
         }
 
+        if (!TryGetPostingIdentity(viewer, network, out var authorName))
+            return;
+
+        if (!TryPrepareImage(state, viewer.Actor, message.ImageData, 0, out var imageData))
+            return;
+
         var post = new InternetPost
         {
-            Id = _nextPostId++,
+            Id = state.NextPostId++,
             Type = message.Type,
             ParentId = parent?.Id ?? 0,
             Title = title,
             Body = body,
-            ImageId = NormalizeImage(message.ImageId),
-            AuthorName = characterName,
-            AuthorUserId = userId,
-            AuthorUserName = userName,
+            ImageData = imageData,
+            AuthorName = authorName,
+            AuthorCKey = viewer.CKey,
+            AuthorUserId = viewer.UserId,
+            AuthorUserName = viewer.CKey,
+            AuthorCard = viewer.CardUid,
             CreatedAt = Now(),
         };
 
-        _posts.Insert(0, post);
-        _postsById[post.Id] = post;
+        state.TotalImageBytes += imageData?.Length ?? 0;
+        state.Posts.Insert(0, post);
+        state.PostsById[post.Id] = post;
 
         _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
-            $"{ToPrettyString(actor):user} created {post.Type} '{title}' ({idCardName}) on the Internet");
+            $"{ToPrettyString(viewer.Actor):user} created {network} {post.Type} '{title}' ({authorName})");
 
         Broadcast();
     }
 
-    private void EditPost(InternetEditPostMessage message)
+    private void EditPost(InternetEditPostMessage message, InternetNetwork network, bool adminMode)
     {
-        if (!TryGetAuthor(message, out var actor, out var userId, out var userName, out var characterName, out var idCardName))
+        if (!TryGetViewerContext(message, out var viewer))
             return;
 
-        if (!_postsById.TryGetValue(message.PostId, out var post))
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post))
             return;
 
-        if (!CanEdit(post, userId, userName, characterName, idCardName))
+        var adminBypass = adminMode && viewer.IsAdmin;
+        if (!adminBypass && !CanModify(post, network, viewer))
         {
-            Reject(actor, "internet-popup-not-author");
+            Reject(viewer.Actor, "internet-popup-not-author");
             return;
         }
 
-        if (!TryConsumeWrite(userId))
+        if (!TryConsumeWrite(network, viewer.UserId))
             return;
 
-        var title = (message.Title ?? string.Empty).Trim();
+        var title = NormalizeTitle(message.Title);
         if (title.Length == 0)
         {
-            Reject(actor, "internet-popup-title-required");
+            Reject(viewer.Actor, "internet-popup-title-required");
             return;
         }
 
@@ -225,47 +287,81 @@ public sealed class InternetSystem : EntitySystem
         if (body.Length > InternetDefaults.MaxBodyLength)
             body = body[..InternetDefaults.MaxBodyLength];
 
+        var oldImageLength = post.ImageData?.Length ?? 0;
+        if (!TryPrepareImage(state, viewer.Actor, message.ImageData, oldImageLength, out var imageData))
+            return;
+
         post.Title = title;
         post.Body = body;
-        post.ImageId = NormalizeImage(message.ImageId);
+        post.ImageData = imageData;
         post.EditedAt = Now();
+        state.TotalImageBytes += (imageData?.Length ?? 0) - oldImageLength;
 
         _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
-            $"{ToPrettyString(actor):user} edited {post.Type} '{title}' ({idCardName}) on the Internet");
+            $"{ToPrettyString(viewer.Actor):user} edited {network} {post.Type} '{title}' ({post.AuthorName})");
 
         Broadcast();
     }
 
-    private void LikePost(InternetLikePostMessage message)
+    private void DeletePost(InternetDeletePostMessage message, InternetNetwork network, bool adminMode)
     {
-        if (!TryGetUserId(message.Actor, out var userId))
+        if (!TryGetViewerContext(message, out var viewer))
             return;
 
-        if (!_postsById.TryGetValue(message.PostId, out var post))
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post))
+            return;
+
+        var adminBypass = adminMode && viewer.IsAdmin;
+        if (!adminBypass && !CanModify(post, network, viewer))
+        {
+            Reject(viewer.Actor, "internet-popup-not-author");
+            return;
+        }
+
+        if (!TryConsumeWrite(network, viewer.UserId))
+            return;
+
+        RemovePostSubtree(state, post);
+
+        _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
+            $"{ToPrettyString(viewer.Actor):user} deleted {network} {post.Type} '{post.Title}' ({post.AuthorName})");
+
+        Broadcast();
+    }
+
+    private void LikePost(InternetLikePostMessage message, InternetNetwork network)
+    {
+        if (!TryGetSessionUser(message.Actor, out var userId))
+            return;
+
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post))
             return;
 
         ToggleLike(post.LikedBy, userId);
         Broadcast();
     }
 
-    private void CreateComment(InternetCreateCommentMessage message)
+    private void CreateComment(InternetCreateCommentMessage message, InternetNetwork network)
     {
-        if (!TryGetAuthor(message, out var actor, out var userId, out _, out var characterName, out var idCardName))
+        if (!TryGetViewerContext(message, out var viewer))
             return;
 
-        if (!_postsById.TryGetValue(message.PostId, out var post))
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post))
             return;
 
         if (post.Type != InternetPostType.Post)
             return;
 
-        if (!TryConsumeWrite(userId))
+        if (!TryConsumeWrite(network, viewer.UserId))
             return;
 
         var text = (message.Text ?? string.Empty).Trim();
         if (text.Length == 0)
         {
-            Reject(actor, "internet-popup-message-required");
+            Reject(viewer.Actor, "internet-popup-message-required");
             return;
         }
 
@@ -280,38 +376,44 @@ public sealed class InternetSystem : EntitySystem
 
             if (GetCommentDepth(post, parent) + 1 > InternetDefaults.MaxCommentDepth)
             {
-                Reject(actor, "internet-popup-comment-too-deep");
+                Reject(viewer.Actor, "internet-popup-comment-too-deep");
                 return;
             }
         }
 
         if (post.Comments.Count >= InternetDefaults.MaxCommentsPerPost)
         {
-            Reject(actor, "internet-popup-limit");
+            Reject(viewer.Actor, "internet-popup-limit");
             return;
         }
 
+        if (!TryGetPostingIdentity(viewer, network, out var authorName))
+            return;
+
         post.Comments.Add(new InternetComment
         {
-            Id = _nextCommentId++,
+            Id = state.NextCommentId++,
             ParentId = message.ParentCommentId,
-            AuthorName = characterName,
+            AuthorName = authorName,
+            AuthorCKey = viewer.CKey,
+            AuthorUserId = viewer.UserId,
             Text = text,
             CreatedAt = Now(),
         });
 
         _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
-            $"{ToPrettyString(actor):user} commented on Internet post '{post.Title}' ({idCardName})");
+            $"{ToPrettyString(viewer.Actor):user} commented on {network} post '{post.Title}' ({authorName})");
 
         Broadcast();
     }
 
-    private void LikeComment(InternetLikeCommentMessage message)
+    private void LikeComment(InternetLikeCommentMessage message, InternetNetwork network)
     {
-        if (!TryGetUserId(message.Actor, out var userId))
+        if (!TryGetSessionUser(message.Actor, out var userId))
             return;
 
-        if (!_postsById.TryGetValue(message.PostId, out var post))
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post))
             return;
 
         var comment = post.Comments.FirstOrDefault(entry => entry.Id == message.CommentId);
@@ -322,110 +424,198 @@ public sealed class InternetSystem : EntitySystem
         Broadcast();
     }
 
-    private void SendChatMessage(InternetSendChatMessage message)
+    private void SendChatMessage(InternetSendChatMessage message, InternetNetwork network)
     {
-        if (!TryGetAuthor(message, out var actor, out var userId, out _, out var characterName, out var idCardName))
+        if (!TryGetViewerContext(message, out var viewer))
             return;
 
-        if (!_postsById.TryGetValue(message.PostId, out var post) || post.Type != InternetPostType.Chat)
+        var state = GetState(network);
+        if (!state.PostsById.TryGetValue(message.PostId, out var post) || post.Type != InternetPostType.Chat)
             return;
 
-        if (!TryConsumeWrite(userId))
+        if (!TryConsumeWrite(network, viewer.UserId))
             return;
 
         var text = (message.Text ?? string.Empty).Trim();
         if (text.Length > InternetDefaults.MaxChatMessageLength)
             text = text[..InternetDefaults.MaxChatMessageLength];
 
-        var imageId = NormalizeImage(message.ImageId);
-        if (text.Length == 0 && imageId == null)
+        if (!TryPrepareImage(state, viewer.Actor, message.ImageData, 0, out var imageData))
+            return;
+
+        if (text.Length == 0 && imageData == null)
         {
-            Reject(actor, "internet-popup-message-required");
+            Reject(viewer.Actor, "internet-popup-message-required");
             return;
         }
 
         if (post.Messages.Count >= InternetDefaults.MaxMessagesPerChat)
         {
-            Reject(actor, "internet-popup-limit");
+            Reject(viewer.Actor, "internet-popup-limit");
             return;
         }
 
+        if (!TryGetPostingIdentity(viewer, network, out var authorName))
+            return;
+
+        state.TotalImageBytes += imageData?.Length ?? 0;
         post.Messages.Add(new InternetChatMessage
         {
-            Id = _nextMessageId++,
-            AuthorName = characterName,
+            Id = state.NextMessageId++,
+            AuthorName = authorName,
+            AuthorCKey = viewer.CKey,
+            AuthorUserId = viewer.UserId,
             Text = text,
-            ImageId = imageId,
+            ImageData = imageData,
             CreatedAt = Now(),
         });
 
         _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
-            $"{ToPrettyString(actor):user} wrote in Internet chat '{post.Title}' ({idCardName})");
+            $"{ToPrettyString(viewer.Actor):user} wrote in {network} chat '{post.Title}' ({authorName})");
+
+        Broadcast();
+    }
+
+    private void SetAlias(InternetSetAliasMessage message, InternetNetwork network)
+    {
+        if (network != InternetNetwork.Darknet)
+            return;
+
+        if (!TryGetViewerContext(message, out var viewer))
+            return;
+
+        if (viewer.CardUid == EntityUid.Invalid)
+        {
+            Reject(viewer.Actor, "internet-popup-no-id");
+            return;
+        }
+
+        var alias = NormalizeAlias(message.Alias);
+        if (alias.Length == 0)
+        {
+            Reject(viewer.Actor, "darknet-popup-alias-required");
+            return;
+        }
+
+        if (alias.Length > InternetDefaults.MaxAliasLength)
+            alias = alias[..InternetDefaults.MaxAliasLength];
+
+        var aliasComponent = EnsureComp<DarknetAliasComponent>(viewer.CardUid);
+        aliasComponent.Alias = alias;
+
+        _adminLogger.Add(LogType.PdaInteract, LogImpact.Low,
+            $"{ToPrettyString(viewer.Actor):user} set Darknet alias '{alias}'");
+
+        SendState(viewer.Loader);
+    }
+
+    private void AdminDeleteUserPosts(InternetAdminDeleteUserPostsMessage message, InternetNetwork network, bool adminMode)
+    {
+        if (!TryGetViewerContext(message, out var viewer))
+            return;
+
+        if (!adminMode || !viewer.IsAdmin)
+        {
+            Reject(viewer.Actor, "internet-popup-admin-only");
+            return;
+        }
+
+        if (message.TargetUserId.UserId == Guid.Empty)
+            return;
+
+        var state = GetState(network);
+        PurgeUserContent(state, message.TargetUserId);
+
+        _adminLogger.Add(LogType.PdaInteract, LogImpact.Medium,
+            $"{ToPrettyString(viewer.Actor):user} deleted all {network} posts by {message.TargetUserId}");
 
         Broadcast();
     }
 
     #endregion
 
-    #region Validation
+    #region Identity
 
-    private bool TryGetAuthor(
-        CartridgeMessageEvent message,
-        out EntityUid actor,
-        out NetUserId userId,
-        out string userName,
-        out string characterName,
-        out string idCardName)
+    private sealed class ViewerContext
     {
-        actor = message.Actor;
-        userId = default;
-        userName = string.Empty;
-        characterName = string.Empty;
-        idCardName = string.Empty;
+        public EntityUid Actor;
+        public EntityUid Loader;
+        public NetUserId UserId;
+        public string CKey = string.Empty;
+        public string CharacterName = string.Empty;
+        public EntityUid CardUid;
+        public string? IdCardName;
+        public string? DarknetAlias;
+        public bool IsAdmin;
+    }
 
-        if (!TryGetUserId(actor, out userId, out userName))
-            return false;
-
+    private bool TryGetViewerContext(CartridgeMessageEvent message, out ViewerContext viewer)
+    {
+        viewer = new ViewerContext();
+        var actor = message.Actor;
         var loader = GetEntity(message.LoaderUid);
-        if (!loader.Valid || TerminatingOrDeleted(loader))
+        var built = BuildViewerContext(actor, loader);
+        if (built == null)
             return false;
 
-        // The card that authorises a post is the one inside the PDA running the program, not
-        // an arbitrary ID card the user may be carrying in a different slot.
-        if (!_idCards.TryGetIdCard(loader, out Entity<IdCardComponent> card))
-        {
-            Reject(actor, "internet-popup-no-id");
-            return false;
-        }
-
-        idCardName = card.Comp.FullName ?? string.Empty;
-        characterName = Name(actor);
-
-        if (string.IsNullOrWhiteSpace(idCardName))
-        {
-            Reject(actor, "internet-popup-no-id");
-            return false;
-        }
-
-        if (idCardName != characterName)
-        {
-            Reject(actor, "internet-popup-id-mismatch");
-            return false;
-        }
-
+        viewer = built;
         return true;
     }
 
-    private bool TryGetUserId(EntityUid actor, out NetUserId userId)
+    private ViewerContext? BuildViewerContext(EntityUid actor, EntityUid loader)
     {
-        return TryGetUserId(actor, out userId, out _);
+        if (!actor.Valid || TerminatingOrDeleted(actor))
+            return null;
+
+        if (!loader.Valid || TerminatingOrDeleted(loader))
+            return null;
+
+        if (!_player.TryGetSessionByEntity(actor, out var session))
+            return null;
+
+        var viewer = new ViewerContext
+        {
+            Actor = actor,
+            Loader = loader,
+            UserId = session.UserId,
+            CKey = session.Name,
+            CharacterName = Name(actor),
+            IsAdmin = _admin.IsAdmin(session),
+        };
+
+        if (_idCards.TryGetIdCard(loader, out var card))
+        {
+            viewer.CardUid = card.Owner;
+            viewer.IdCardName = card.Comp.FullName;
+            viewer.DarknetAlias = GetDarknetAlias(card.Owner);
+        }
+
+        return viewer;
     }
 
-    private bool TryGetUserId(EntityUid actor, out NetUserId userId, out string userName)
+    private ViewerContext GetViewerForLoader(EntityUid loader, CartridgeLoaderComponent loaderComp)
+    {
+        var actor = _ui.GetActors(loader, loaderComp.UiKey).FirstOrDefault();
+        if (actor.Valid && BuildViewerContext(actor, loader) is { } viewer)
+            return viewer;
+
+        return new ViewerContext { Loader = loader };
+    }
+
+    private bool TryConsumeWrite(InternetNetwork network, NetUserId userId)
+    {
+        var key = (network, userId);
+        var now = _timing.CurTime;
+        if (_nextWrite.TryGetValue(key, out var next) && now < next)
+            return false;
+
+        _nextWrite[key] = now + WriteCooldown;
+        return true;
+    }
+
+    private bool TryGetSessionUser(EntityUid actor, out NetUserId userId)
     {
         userId = default;
-        userName = string.Empty;
-
         if (!actor.Valid || TerminatingOrDeleted(actor))
             return false;
 
@@ -433,34 +623,155 @@ public sealed class InternetSystem : EntitySystem
             return false;
 
         userId = session.UserId;
-        userName = session.Name;
         return true;
     }
 
-    private static bool CanEdit(
-        InternetPost post,
-        NetUserId userId,
-        string userName,
-        string characterName,
-        string idCardName)
+    private bool TryGetPostingIdentity(ViewerContext viewer, InternetNetwork network, out string authorName)
     {
-        return post.AuthorUserId == userId
-               && post.AuthorUserName == userName
-               && post.AuthorName == characterName
-               && post.AuthorName == idCardName;
+        authorName = string.Empty;
+
+        if (viewer.CardUid == EntityUid.Invalid)
+        {
+            Reject(viewer.Actor, "internet-popup-no-id");
+            return false;
+        }
+
+        if (network == InternetNetwork.Internet)
+        {
+            if (string.IsNullOrWhiteSpace(viewer.IdCardName))
+            {
+                Reject(viewer.Actor, "internet-popup-no-id");
+                return false;
+            }
+
+            if (viewer.IdCardName != viewer.CharacterName)
+            {
+                Reject(viewer.Actor, "internet-popup-id-mismatch");
+                return false;
+            }
+
+            authorName = viewer.CharacterName;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(viewer.DarknetAlias))
+        {
+            Reject(viewer.Actor, "darknet-popup-no-alias");
+            return false;
+        }
+
+        authorName = viewer.DarknetAlias;
+        return true;
     }
 
-    private bool TryConsumeWrite(NetUserId userId)
+    private static bool CanModify(InternetPost post, InternetNetwork network, ViewerContext viewer)
     {
-        var now = _timing.CurTime;
-        if (_nextWrite.TryGetValue(userId, out var next) && now < next)
+        if (network == InternetNetwork.Darknet)
+            return viewer.CardUid != EntityUid.Invalid && post.AuthorCard == viewer.CardUid;
+
+        return viewer.CardUid != EntityUid.Invalid
+               && post.AuthorUserId == viewer.UserId
+               && post.AuthorUserName == viewer.CKey
+               && post.AuthorName == viewer.CharacterName
+               && post.AuthorName == viewer.IdCardName;
+    }
+
+    private string? GetDarknetAlias(EntityUid card)
+    {
+        // The component is server-only; the alias is transferred with the card.
+        if (!TryComp<DarknetAliasComponent>(card, out var alias) || string.IsNullOrWhiteSpace(alias.Alias))
+            return null;
+
+        return alias.Alias;
+    }
+
+    #endregion
+
+    #region Validation
+
+    private bool TryPrepareImage(NetworkState state, EntityUid actor, byte[]? data, int replacedBytes, out byte[]? imageData)
+    {
+        imageData = null;
+
+        if (data == null || data.Length == 0)
+            return true;
+
+        if (data.Length > InternetDefaults.MaxImageBytes || !IsValidPng(data))
+        {
+            Reject(actor, "internet-popup-image-invalid");
+            return false;
+        }
+
+        if (state.TotalImageBytes - replacedBytes + data.Length > InternetDefaults.MaxTotalImageBytes)
+        {
+            Reject(actor, "internet-popup-image-budget");
+            return false;
+        }
+
+        imageData = data;
+        return true;
+    }
+
+    /// <summary>
+    ///     The client always re-encodes uploads as PNG. Checking the signature and the IHDR
+    ///     dimensions here keeps malformed or decompression-bomb images out of the shared feed.
+    /// </summary>
+    private static bool IsValidPng(byte[] data)
+    {
+        if (data.Length < 24)
             return false;
 
-        _nextWrite[userId] = now + WriteCooldown;
-        return true;
+        if (data[0] != 0x89 || data[1] != 0x50 || data[2] != 0x4E || data[3] != 0x47 ||
+            data[4] != 0x0D || data[5] != 0x0A || data[6] != 0x1A || data[7] != 0x0A)
+        {
+            return false;
+        }
+
+        var width = (uint)(data[16] << 24 | data[17] << 16 | data[18] << 8 | data[19]);
+        var height = (uint)(data[20] << 24 | data[21] << 16 | data[22] << 8 | data[23]);
+
+        return width > 0 &&
+               height > 0 &&
+               width <= InternetDefaults.MaxImageDimension &&
+               height <= InternetDefaults.MaxImageDimension;
     }
 
-    private int GetDepth(InternetPost post)
+    private static string NormalizeTitle(string? title)
+    {
+        return (title ?? string.Empty).Trim().Replace('\n', ' ').Replace('\r', ' ');
+    }
+
+    private static string NormalizeAlias(string? alias)
+    {
+        return (alias ?? string.Empty).Trim().Replace('\n', ' ').Replace('\r', ' ');
+    }
+
+    private static void ToggleLike(HashSet<NetUserId> likes, NetUserId userId)
+    {
+        if (!likes.Add(userId))
+            likes.Remove(userId);
+    }
+
+    private static long Now()
+    {
+        return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+    }
+
+    private void Reject(EntityUid actor, string locKey)
+    {
+        _popup.PopupEntity(Loc.GetString(locKey), actor, actor);
+    }
+
+    #endregion
+
+    #region State
+
+    private NetworkState GetState(InternetNetwork network)
+    {
+        return _networks[network];
+    }
+
+    private int GetDepth(NetworkState state, InternetPost post)
     {
         var depth = 1;
         var current = post;
@@ -468,7 +779,7 @@ public sealed class InternetSystem : EntitySystem
 
         while (current.ParentId != 0 && guard++ < 100)
         {
-            if (!_postsById.TryGetValue(current.ParentId, out var parent))
+            if (!state.PostsById.TryGetValue(current.ParentId, out var parent))
                 break;
 
             depth++;
@@ -497,78 +808,71 @@ public sealed class InternetSystem : EntitySystem
         return depth;
     }
 
-    private static string? NormalizeImage(string? imageId)
-    {
-        return InternetDefaults.IsValidImage(imageId) ? imageId : null;
-    }
-
-    private static void ToggleLike(HashSet<NetUserId> likes, NetUserId userId)
-    {
-        if (!likes.Add(userId))
-            likes.Remove(userId);
-    }
-
-    private static long Now()
-    {
-        return DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-    }
-
-    private void Reject(EntityUid actor, string locKey)
-    {
-        _popup.PopupEntity(Loc.GetString(locKey), actor, actor);
-    }
-
-    #endregion
-
-    #region State
-
     private void Broadcast()
     {
-        if (_openLoaders.Count == 0)
-            return;
-
-        var snapshot = CreateSnapshot();
-
         foreach (var loader in _openLoaders.ToArray())
         {
             if (!TryComp<CartridgeLoaderComponent>(loader, out var loaderComp) ||
-                loaderComp.ActiveProgram is not { } program ||
-                !HasComp<InternetCartridgeComponent>(program))
+                loaderComp.ActiveProgram is not { } programUid ||
+                !TryComp<InternetCartridgeComponent>(programUid, out var program))
             {
                 _openLoaders.Remove(loader);
                 continue;
             }
 
-            SendState(loader, loaderComp, snapshot);
+            SendState(loader, loaderComp, program);
         }
     }
 
-    private void SendState(EntityUid loader, CartridgeLoaderComponent? loaderComp = null, List<InternetPostInfo>? snapshot = null)
+    private void SendState(EntityUid loader, CartridgeLoaderComponent? loaderComp = null, InternetCartridgeComponent? program = null)
     {
         if (!Resolve(loader, ref loaderComp))
             return;
 
-        if (loaderComp.ActiveProgram is not { } program || !HasComp<InternetCartridgeComponent>(program))
-            return;
+        if (program == null)
+        {
+            if (loaderComp.ActiveProgram is not { } programUid ||
+                !TryComp<InternetCartridgeComponent>(programUid, out var activeProgram))
+            {
+                return;
+            }
 
-        snapshot ??= CreateSnapshot();
+            program = activeProgram;
+        }
 
-        var hasIdCard = _idCards.TryGetIdCard(loader, out Entity<IdCardComponent> card)
-                        && !string.IsNullOrWhiteSpace(card.Comp.FullName);
+        var state = GetState(program.Network);
+        var hasCard = _idCards.TryGetIdCard(loader, out var card);
+        var hasIdCard = hasCard && !string.IsNullOrWhiteSpace(card.Comp.FullName);
+        var idCardName = hasIdCard ? card.Comp.FullName : null;
+        var alias = program.Network == InternetNetwork.Darknet && hasCard
+            ? GetDarknetAlias(card.Owner)
+            : null;
+        var viewer = GetViewerForLoader(loader, loaderComp);
+        var adminView = program.Admin && viewer.IsAdmin;
+        var snapshot = CreateSnapshot(state, program.Network, viewer, adminView, adminView);
 
-        var state = new InternetUiState(
+        var uiState = new InternetUiState(
             snapshot,
             hasIdCard,
-            hasIdCard ? card.Comp.FullName : null);
+            idCardName,
+            program.Network,
+            program.Admin,
+            viewer.IsAdmin,
+            alias);
 
-        _cartridge.UpdateCartridgeUiState(loader, state);
+        _cartridge.UpdateCartridgeUiState(loader, uiState);
     }
 
-    private List<InternetPostInfo> CreateSnapshot()
+    private List<InternetPostInfo> CreateSnapshot(
+        NetworkState state,
+        InternetNetwork network,
+        ViewerContext viewer,
+        bool includeCKey,
+        bool adminBypass)
     {
-        var snapshot = new List<InternetPostInfo>(_posts.Count);
+        var snapshot = new List<InternetPostInfo>(state.Posts.Count);
 
-        foreach (var post in _posts)
+        foreach (var post in state.Posts)
         {
             var info = new InternetPostInfo
             {
@@ -577,11 +881,13 @@ public sealed class InternetSystem : EntitySystem
                 ParentId = post.ParentId,
                 Title = post.Title,
                 Body = post.Body,
-                ImageId = post.ImageId,
+                ImageData = post.ImageData,
                 AuthorName = post.AuthorName,
+                AuthorCKey = includeCKey ? post.AuthorCKey : null,
                 AuthorUserId = post.AuthorUserId,
                 CreatedAt = post.CreatedAt,
                 EditedAt = post.EditedAt,
+                CanEdit = adminBypass || CanModify(post, network, viewer),
             };
 
             info.LikedBy.AddRange(post.LikedBy);
@@ -593,6 +899,7 @@ public sealed class InternetSystem : EntitySystem
                     Id = comment.Id,
                     ParentId = comment.ParentId,
                     AuthorName = comment.AuthorName,
+                    AuthorCKey = includeCKey ? comment.AuthorCKey : null,
                     Text = comment.Text,
                     CreatedAt = comment.CreatedAt,
                 };
@@ -607,8 +914,9 @@ public sealed class InternetSystem : EntitySystem
                 {
                     Id = message.Id,
                     AuthorName = message.AuthorName,
+                    AuthorCKey = includeCKey ? message.AuthorCKey : null,
                     Text = message.Text,
-                    ImageId = message.ImageId,
+                    ImageData = message.ImageData,
                     CreatedAt = message.CreatedAt,
                 });
             }
@@ -621,7 +929,105 @@ public sealed class InternetSystem : EntitySystem
 
     #endregion
 
+    #region Deletion
+
+    private static void RemovePostSubtree(NetworkState state, InternetPost root)
+    {
+        var toRemove = new List<InternetPost>();
+        var stack = new Stack<InternetPost>();
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            toRemove.Add(current);
+
+            foreach (var child in state.Posts.Where(post => post.ParentId == current.Id))
+                stack.Push(child);
+        }
+
+        foreach (var post in toRemove)
+        {
+            state.TotalImageBytes -= GetPostImageBytes(post);
+            state.Posts.Remove(post);
+            state.PostsById.Remove(post.Id);
+        }
+    }
+
+    private static int GetPostImageBytes(InternetPost post)
+    {
+        var total = post.ImageData?.Length ?? 0;
+
+        foreach (var message in post.Messages)
+            total += message.ImageData?.Length ?? 0;
+
+        return total;
+    }
+
+    private static void PurgeUserContent(NetworkState state, NetUserId target)
+    {
+        var roots = state.Posts.Where(post => post.AuthorUserId == target).ToList();
+        foreach (var root in roots)
+        {
+            if (!state.PostsById.ContainsKey(root.Id))
+                continue;
+
+            RemovePostSubtree(state, root);
+        }
+
+        foreach (var post in state.Posts)
+        {
+            var commentIds = new HashSet<int>();
+            foreach (var comment in post.Comments.Where(comment => comment.AuthorUserId == target))
+                CollectCommentSubtree(post, comment, commentIds);
+
+            if (commentIds.Count > 0)
+                post.Comments.RemoveAll(comment => commentIds.Contains(comment.Id));
+
+            for (var i = post.Messages.Count - 1; i >= 0; i--)
+            {
+                var message = post.Messages[i];
+                if (message.AuthorUserId != target)
+                    continue;
+
+                state.TotalImageBytes -= message.ImageData?.Length ?? 0;
+                post.Messages.RemoveAt(i);
+            }
+        }
+    }
+
+    private static void CollectCommentSubtree(InternetPost post, InternetComment comment, HashSet<int> ids)
+    {
+        if (!ids.Add(comment.Id))
+            return;
+
+        foreach (var child in post.Comments.Where(entry => entry.ParentId == comment.Id))
+            CollectCommentSubtree(post, child, ids);
+    }
+
+    #endregion
+
     #region Data
+
+    private sealed class NetworkState
+    {
+        public readonly List<InternetPost> Posts = new();
+        public readonly Dictionary<int, InternetPost> PostsById = new();
+        public int NextPostId = 1;
+        public int NextCommentId = 1;
+        public int NextMessageId = 1;
+        public int TotalImageBytes;
+
+        public void Reset()
+        {
+            Posts.Clear();
+            PostsById.Clear();
+            NextPostId = 1;
+            NextCommentId = 1;
+            NextMessageId = 1;
+            TotalImageBytes = 0;
+        }
+    }
 
     private sealed class InternetPost
     {
@@ -630,10 +1036,12 @@ public sealed class InternetSystem : EntitySystem
         public int ParentId;
         public string Title = string.Empty;
         public string Body = string.Empty;
-        public string? ImageId;
+        public byte[]? ImageData;
         public string AuthorName = string.Empty;
+        public string AuthorCKey = string.Empty;
         public NetUserId AuthorUserId;
         public string AuthorUserName = string.Empty;
+        public EntityUid AuthorCard;
         public long CreatedAt;
         public long EditedAt;
         public readonly HashSet<NetUserId> LikedBy = new();
@@ -646,6 +1054,8 @@ public sealed class InternetSystem : EntitySystem
         public int Id;
         public int ParentId;
         public string AuthorName = string.Empty;
+        public string AuthorCKey = string.Empty;
+        public NetUserId AuthorUserId;
         public string Text = string.Empty;
         public long CreatedAt;
         public readonly HashSet<NetUserId> LikedBy = new();
@@ -655,8 +1065,10 @@ public sealed class InternetSystem : EntitySystem
     {
         public int Id;
         public string AuthorName = string.Empty;
+        public string AuthorCKey = string.Empty;
+        public NetUserId AuthorUserId;
         public string Text = string.Empty;
-        public string? ImageId;
+        public byte[]? ImageData;
         public long CreatedAt;
     }
 

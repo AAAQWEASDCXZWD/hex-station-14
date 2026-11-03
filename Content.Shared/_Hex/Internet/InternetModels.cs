@@ -15,6 +15,16 @@ public enum InternetPostType : byte
 }
 
 /// <summary>
+///     The separate networks shown by the Internet and Darknet programs.
+/// </summary>
+[Serializable, NetSerializable]
+public enum InternetNetwork : byte
+{
+    Internet,
+    Darknet,
+}
+
+/// <summary>
 ///     A single comment on an Internet post. Comments can be nested through <see cref="ParentId"/>.
 /// </summary>
 [Serializable, NetSerializable]
@@ -23,6 +33,7 @@ public sealed class InternetCommentInfo
     public int Id;
     public int ParentId;
     public string AuthorName = string.Empty;
+    public string? AuthorCKey;
     public string Text = string.Empty;
     public long CreatedAt;
     public List<NetUserId> LikedBy = new();
@@ -36,8 +47,9 @@ public sealed class InternetChatMessageInfo
 {
     public int Id;
     public string AuthorName = string.Empty;
+    public string? AuthorCKey;
     public string Text = string.Empty;
-    public string? ImageId;
+    public byte[]? ImageData;
     public long CreatedAt;
 }
 
@@ -52,11 +64,13 @@ public sealed class InternetPostInfo
     public int ParentId;
     public string Title = string.Empty;
     public string Body = string.Empty;
-    public string? ImageId;
+    public byte[]? ImageData;
     public string AuthorName = string.Empty;
+    public string? AuthorCKey;
     public NetUserId AuthorUserId;
     public long CreatedAt;
     public long EditedAt;
+    public bool CanEdit;
     public List<NetUserId> LikedBy = new();
     public List<InternetCommentInfo> Comments = new();
     public List<InternetChatMessageInfo> Messages = new();
@@ -72,11 +86,26 @@ public sealed class InternetUiState : BoundUserInterfaceState
     public readonly List<InternetPostInfo> Posts;
     public readonly bool HasIdCard;
     public readonly string? IdCardName;
+    public readonly InternetNetwork Network;
+    public readonly bool AdminMode;
+    public readonly bool ViewerIsAdmin;
+    public readonly string? DarknetAlias;
 
-    public InternetUiState(List<InternetPostInfo> posts, bool hasIdCard, string? idCardName)
+    public InternetUiState(
+        List<InternetPostInfo> posts,
+        bool hasIdCard,
+        string? idCardName,
+        InternetNetwork network,
+        bool adminMode,
+        bool viewerIsAdmin,
+        string? darknetAlias)
     {
         Posts = posts;
         HasIdCard = hasIdCard;
         IdCardName = idCardName;
+        Network = network;
+        AdminMode = adminMode;
+        ViewerIsAdmin = viewerIsAdmin;
+        DarknetAlias = darknetAlias;
     }
 }

@@ -1,6 +1,11 @@
 internet-program-name = Internet
+darknet-program-name = Darknet
+admin-internet-program-name = Internet (Admin)
+admin-darknet-program-name = Darknet (Admin)
 
 internet-title = Internet
+darknet-title = Darknet
+internet-admin-badge = [ADMIN]
 internet-post-title = Post
 internet-chat-title = Chat
 internet-tab-feed = Feed
@@ -38,9 +43,10 @@ internet-title-label = Title
 internet-title-placeholder = What is this about?
 internet-body-label = Text
 internet-image-label = Image
-internet-image-none = None
-internet-image-none-tooltip = Do not attach an image
-internet-image-tooltip = Attach {$name}
+internet-image-upload = Attach image...
+internet-image-remove = Remove image
+internet-image-too-large = Image is too large (max {$max} KB).
+internet-image-error = Could not read that image.
 internet-submit = Publish
 internet-save = Save
 internet-cancel = Cancel
@@ -70,6 +76,17 @@ internet-time-days = {$count}d ago
 internet-footer-no-id = Insert an ID card into your PDA to post.
 internet-footer-id-mismatch = The ID card name must match your character name.
 internet-footer-id = Posting as {$name}
+darknet-footer-no-alias = Set a Darknet alias before posting.
+darknet-footer-alias = Posting as {$name}
+
+darknet-alias-label = Alias
+darknet-alias-placeholder = Choose any name
+darknet-alias-set = Set alias
+
+internet-delete = Delete
+internet-delete-confirm = Confirm delete
+internet-admin-delete-user = Delete all posts by {$name}
+internet-admin-delete-user-confirm = Confirm deleting all posts by {$name}
 
 internet-popup-no-id = Your PDA has no ID card inserted.
 internet-popup-id-mismatch = The ID card name must match your character name.
@@ -80,3 +97,8 @@ internet-popup-too-deep = Topics cannot be nested any deeper.
 internet-popup-comment-too-deep = This reply is nested too deeply.
 internet-popup-limit = The Internet is full. Try again later.
 internet-popup-not-author = Only the original author can edit this post.
+internet-popup-image-invalid = That image is not valid.
+internet-popup-image-budget = The Internet has no room for another image.
+internet-popup-admin-only = Administrator access is required.
+darknet-popup-no-alias = Set a Darknet alias on your ID card first.
+darknet-popup-alias-required = The alias cannot be empty.

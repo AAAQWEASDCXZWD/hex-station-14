@@ -43,3 +43,12 @@
   price: 1000
   cartridges:
   - InternetCartridge
+
+- type: loadout
+  id: ContractorDarknetCartridge
+  effects:
+  - !type:GroupLoadoutEffect
+    proto: ContractorT1
+  price: 1000
+  cartridges:
+  - DarknetCartridge

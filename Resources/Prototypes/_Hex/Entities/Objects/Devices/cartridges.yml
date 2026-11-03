@@ -18,3 +18,70 @@
       sprite: _Hex/Interface/Faction/emblems.rsi
       state: circle
   - type: InternetCartridge
+
+- type: entity
+  parent: NFBasePDACartridge
+  id: DarknetCartridge
+  name: Darknet cartridge
+  description: An anonymous red-and-black network. Names are aliases bound to the inserted ID card.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-s
+  - type: Icon
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-s
+  - type: UIFragment
+    ui: !type:DarknetUi
+  - type: Cartridge
+    programName: darknet-program-name
+    icon:
+      sprite: _Hex/Interface/Faction/emblems.rsi
+      state: diamond
+  - type: InternetCartridge
+    network: Darknet
+
+- type: entity
+  parent: NFBasePDACartridge
+  id: AdminInternetCartridge
+  name: admin Internet cartridge
+  description: An Internet cartridge with moderation tools for admins.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-log
+  - type: Icon
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-log
+  - type: UIFragment
+    ui: !type:AdminInternetUi
+  - type: Cartridge
+    programName: admin-internet-program-name
+    icon:
+      sprite: _Hex/Interface/Faction/emblems.rsi
+      state: star
+  - type: InternetCartridge
+    admin: true
+
+- type: entity
+  parent: NFBasePDACartridge
+  id: AdminDarknetCartridge
+  name: admin Darknet cartridge
+  description: A Darknet cartridge with moderation tools for admins.
+  components:
+  - type: Sprite
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-log
+  - type: Icon
+    sprite: Objects/Devices/cartridge.rsi
+    state: cart-log
+  - type: UIFragment
+    ui: !type:AdminDarknetUi
+  - type: Cartridge
+    programName: admin-darknet-program-name
+    icon:
+      sprite: _Hex/Interface/Faction/emblems.rsi
+      state: ring
+  - type: InternetCartridge
+    network: Darknet
+    admin: true

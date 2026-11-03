@@ -980,6 +980,7 @@
   - ContractorNetProbeCartridge
   - ContractorLogProbeCartridge
   - ContractorInternetCartridge
+  - ContractorDarknetCartridge
   fallbacks:
   - ContractorInternetCartridge
 
