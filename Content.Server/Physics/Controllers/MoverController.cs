@@ -64,9 +64,20 @@ public sealed class MoverController : SharedMoverController
 
     private void OnPilotGetInputs(Entity<PilotComponent> entity, ref GetShuttleInputsEvent args) // Mono
     {
+        if (entity.Comp.Console == null)
+            return;
+
+        var consoleEnt = entity.Comp.Console;
+        if (TryComp<DroneConsoleComponent>(consoleEnt, out var cargoConsole))
+            consoleEnt = cargoConsole.Entity;
+
+        if (!TryComp(consoleEnt, out TransformComponent? consoleXform) || consoleXform.GridUid != args.ShuttleUid)
+            return;
+
         args.GotInput = true;
 
-        if (Paused(args.ShuttleUid) || !CanPilot(args.ShuttleUid) || !HasComp<PhysicsComponent>(args.ShuttleUid))
+        // CanPilot returns true when piloting is BLOCKED (e.g. FTL or PreventPilotComponent)
+        if (Paused(args.ShuttleUid) || CanPilot(args.ShuttleUid) || !HasComp<PhysicsComponent>(args.ShuttleUid))
             return;
 
         var input = GetPilotVelocityInput(entity.Comp);
@@ -671,6 +682,10 @@ public sealed class MoverController : SharedMoverController
         return Vector2.Dot(value1, value2);
     }
 
+    /// <summary>
+    /// Checks whether piloting is currently blocked on the shuttle (e.g. in FTL or PreventPilotComponent).
+    /// Returns true if piloting is BLOCKED.
+    /// </summary>
     private bool CanPilot(EntityUid shuttleUid)
     {
         return TryComp<FTLComponent>(shuttleUid, out var ftl)
