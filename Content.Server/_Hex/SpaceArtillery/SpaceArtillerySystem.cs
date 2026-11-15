@@ -46,8 +46,6 @@ public sealed partial class SpaceArtillerySystem : EntitySystem
 
         if (TryComp<BatteryComponent>(uid, out var battery))
             _battery.UseCharge(uid, component.PowerUseActive, battery);
-
-        OnAmmoShotWallTrace(uid, component, args);
     }
 
     private void OnPowerChanged(EntityUid uid, SpaceArtilleryComponent component, ref PowerChangedEvent args)
