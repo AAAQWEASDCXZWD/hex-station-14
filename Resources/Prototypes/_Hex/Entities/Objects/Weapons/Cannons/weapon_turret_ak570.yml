@@ -1,0 +1,66 @@
+- type: entity
+  id: WeaponTurretAK570
+  parent: BaseCannonMagazine
+  name: AK570 57mm autocannon
+  description: A dual-barrel, heavy 57mm autocannon firing general-purpose APHE rounds, effective for sustained fire against medium targets. Can be remotely activated or linked to a gunnery control server.
+  components:
+  - type: Sprite
+    sprite: _Hex/Objects/ShuttleWeapons/artillery.rsi
+    layers:
+    - state: space_artillery
+  - type: Appearance
+  - type: FireControlRotate
+  - type: AmmoCounter
+  - type: Gun
+    fireRate: 3
+    projectileSpeed: 40
+    minAngle: 0
+    maxAngle: 3
+    burstCooldown: 0.4
+    burstFireRate: 10
+    shotsPerBurst: 2
+    selectedMode: Burst
+    availableModes:
+    - Burst
+    soundGunshot:
+      path: /Audio/_Hex/Weapons/Guns/Gunshots/120mm_mortar.ogg
+    soundEmpty:
+      path: /Audio/Weapons/Guns/Empty/lmg_empty.ogg
+  - type: SpaceArtillery
+    powerChargeRate: 125
+    powerUsePassive: 600
+    powerUseActive: 0
+  - type: ItemSlots
+    slots:
+      gun_magazine:
+        name: Magazine
+        startingItem: Magazine57mm
+        insertSound: /Audio/Weapons/Guns/MagIn/hpistol_magin.ogg
+        ejectSound: /Audio/Weapons/Guns/MagOut/sfrifle_magout.ogg
+        priority: 2
+        whitelist:
+          tags:
+          - Magazine57mm
+        whitelistFailPopup: gun-magazine-whitelist-fail
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 12500
+      behaviors:
+      - !type:DoActsBehavior
+        acts: [ "Destruction" ]
+      - !type:PlaySoundBehavior
+        sound:
+          collection: MetalBreak
+  - type: RadarBlip
+    radarColor: "#FF0000"
+    scale: 1.5
+    shape: triangle
+    visibleFromOtherGrids: true
+  - type: ShipGunType
+    shipType: Ballistic
+  - type: ShipGunClass
+    shipClass: Medium
+  - type: StaticPrice
+    price: 650

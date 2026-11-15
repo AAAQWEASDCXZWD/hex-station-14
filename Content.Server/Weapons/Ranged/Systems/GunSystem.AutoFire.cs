@@ -42,7 +42,7 @@ public sealed partial class GunSystem
                 if (HasComp<DamageableComponent>(parent))
                     AttemptShoot(parent, uid, gun, gun.ShootCoordinates ?? new EntityCoordinates(uid, gun.DefaultDirection));
                 else
-                    AttemptShoot(uid, gun);
+                    AttemptShoot(uid, uid, gun, gun.ShootCoordinates ?? new EntityCoordinates(uid, gun.DefaultDirection)); // Preserve turret aim.
             }
         }
     }

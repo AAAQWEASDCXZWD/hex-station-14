@@ -1,0 +1,102 @@
+# Shared foundation for ship and station mounted cannons.
+#
+# Any cannon that should be operable from a gunnery console needs:
+# - SpaceArtillery       : power/impact behaviour
+# - FireControllable     : lets a FireControlServer register and fire it
+# - ShipGunType/Class    : used for UI grouping and processing power cost
+# - a Gun component      : actual projectile/ammo handling
+#
+# Ship cannons and station cannons use the same components. The only difference
+# is which grid the cannon is anchored to and which gunnery server controls that grid.
+
+- type: entity
+  id: BaseCannon
+  abstract: true
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Damageable
+    damageContainer: StructuralInorganic
+    damageModifierSet: StructuralMetallic
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 7000
+      behaviors:
+      - !type:DoActsBehavior
+        acts: [ "Destruction" ]
+    - trigger:
+        !type:DamageTrigger
+        damage: 6000
+      behaviors:
+      - !type:DoActsBehavior
+        acts: [ "Destruction" ]
+      - !type:PlaySoundBehavior
+        sound:
+          collection: MetalBreak
+  - type: Clickable
+  - type: InteractionOutline
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      fix1:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.4,-0.4,0.4,0.4"
+        density: 800
+        mask:
+        - MachineMask
+        layer:
+        - MachineLayer
+  - type: Climbable
+  - type: Transform
+    anchored: true
+  - type: Anchorable
+    delay: 10
+  - type: Pullable
+  - type: Rotatable
+    rotateWhilePulling: false
+    rotateWhileAnchored: false
+    increment: 90
+  - type: SpaceArtillery
+  - type: FireControllable
+  - type: RadarBlip
+    visibleFromOtherGrids: true
+    radarColor: "#9999FF"
+    scale: 1
+    shape: square
+  - type: ShipGunType
+    shipType: Ballistic
+  - type: ShipGunClass
+    shipClass: Medium
+  - type: Gun
+    selectedMode: FullAuto
+    availableModes:
+    - FullAuto
+  - type: ExaminableDamage
+    messages: WindowMessages
+
+# Magazine-fed cannons reuse the same core and only add an ammo slot.
+- type: entity
+  id: BaseCannonMagazine
+  parent: BaseCannon
+  abstract: true
+  components:
+  - type: ContainerContainer
+    containers:
+      gun_magazine: !type:ContainerSlot
+  - type: MagazineAmmoProvider
+
+# Belt-fed cannons are the alternative feed type, useful for fixed station emplacements.
+# A child prototype only needs to provide BallisticAmmoProvider.Proto/Capacity.
+- type: entity
+  id: BaseCannonBeltFed
+  parent: BaseCannon
+  abstract: true
+  components:
+  - type: ContainerContainer
+    containers:
+      ballistic-ammo: !type:Container
+  - type: BallisticAmmoProvider

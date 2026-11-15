@@ -155,6 +155,15 @@
             </controls:BoxContainer>
             <!-- End Frontier - Maximum IFF Distance -->
 
+            <!-- Frontier - Maximum Shuttle Speed -->
+            <controls:BoxContainer Orientation="Vertical" HorizontalExpand="True" Name="MaximumShuttleSpeedBox" Margin="0 0 0 3">
+                <controls:Label Text="{controls:Loc 'shuttle-console-maximum-speed'}"/>
+                <controls:LineEdit Name="MaximumShuttleSpeedValue"
+                                   Access="Public"
+                                   HorizontalExpand="True"/>
+            </controls:BoxContainer>
+            <!-- End Frontier - Maximum Shuttle Speed -->
+
             <!-- Frontier - Service Flags -->
             <controls:BoxContainer Orientation="Vertical" HorizontalExpand="True" Name="ServiceFlagsBox">
                 <controls:Label Text="{controls:Loc 'shuttle-console-service-flags'}"/>

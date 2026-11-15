@@ -1,6 +1,7 @@
 shuttle-console-designation = Позивний:
 shuttle-console-designation-unknown = Невідомо
 shuttle-console-maximum-iff-distance = Максимальна дальність IFF
+shuttle-console-maximum-speed = Максимальна швидкість шатла
 
 shuttle-console-iff-search = Пошук IFF
 shuttle-console-inertia-dampener-off = Крейсерський хід

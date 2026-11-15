@@ -14,6 +14,7 @@ namespace Content.Client.Shuttles.BUI
         {
             _window ??= new ShuttleConsoleWindow();
             _window.OnInertiaDampeningModeChanged += OnInertiaDampeningModeChanged;
+            _window.OnMaxShuttleSpeedChanged += OnMaxShuttleSpeedChanged;
             _window.OnServiceFlagsChanged += OnServiceFlagsChanged;
             _window.OnSetTargetCoordinates += OnSetTargetCoordinates;
             _window.OnSetHideTarget += OnSetHideTarget;
@@ -25,6 +26,14 @@ namespace Content.Client.Shuttles.BUI
             {
                 ShuttleEntityUid = entityUid,
                 Mode = mode,
+            });
+        }
+
+        private void OnMaxShuttleSpeedChanged(float? maxSpeed)
+        {
+            SendMessage(new SetMaxShuttleSpeedRequest
+            {
+                MaxSpeed = maxSpeed,
             });
         }
 

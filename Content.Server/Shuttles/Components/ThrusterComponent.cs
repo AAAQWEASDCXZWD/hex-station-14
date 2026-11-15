@@ -15,7 +15,7 @@ namespace Content.Server.Shuttles.Components
     public sealed partial class ThrusterComponent : Component
     {
         /// <summary>
-        /// Whether the thruster has been force to be enabled / disabled (e.g. VV, interaction, etc.)
+        /// Whether the thruster is considered operational.
         /// </summary>
         [DataField, ViewVariables(VVAccess.ReadWrite)]
         public bool Enabled { get; set; } = true;
@@ -27,10 +27,10 @@ namespace Content.Server.Shuttles.Components
 
         // Need to serialize this because RefreshParts isn't called on Init and this will break post-mapinit maps!
         [ViewVariables(VVAccess.ReadWrite), DataField("thrust")]
-        public float Thrust = 100f;
+        public float Thrust = 200f; // 100f->200f Mono
 
         [DataField("baseThrust"), ViewVariables(VVAccess.ReadWrite)]
-        public float BaseThrust = 100f;
+        public float BaseThrust = 200f; // 100f->200f Mono
 
         [DataField("thrusterType")]
         public ThrusterType Type = ThrusterType.Linear;
@@ -43,19 +43,15 @@ namespace Content.Server.Shuttles.Components
             new Vector2(0.4f, 0.5f)
         };
 
-        /// <summary>
-        /// How much damage is done per second to anything colliding with our thrust.
-        /// </summary>
         [DataField("damage")] public DamageSpecifier? Damage = new();
-
-        [DataField("requireSpace")]
-        public bool RequireSpace = true;
 
         // Used for burns
 
         public List<EntityUid> Colliding = new();
 
         public bool Firing = false;
+
+        public bool RequireSpace = true;
 
         /// <summary>
         /// How often thruster deals damage.
@@ -67,11 +63,14 @@ namespace Content.Server.Shuttles.Components
         public TimeSpan NextFire = TimeSpan.Zero;
 
         // Frontier: upgradeable parts, togglable thrust
-        [DataField]
+        [DataField("machinePartThrust")]
         public ProtoId<MachinePartPrototype> MachinePartThrust = "Capacitor";
 
+        [DataField("partRatingThrustMultiplier")]
+        public float PartRatingThrustMultiplier = 1.25f;
+
         [DataField]
-        public float[] ThrustPerPartLevel = [130, 170, 210, 250];
+        public float[] ThrustPerPartLevel = [200, 250, 300, 350];
 
         /// <summary>
         /// Load on the power network, in watts.

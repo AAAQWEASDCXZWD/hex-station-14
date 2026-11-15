@@ -1,0 +1,47 @@
+- type: entity
+  id: 57mmBullet
+  name: 57mm shell
+  parent: BaseBulletTrigger
+  categories: [ HideSpawnMenu ]
+  components:
+  - type: Projectile
+    damage:
+      types:
+        Blunt: 35
+        Piercing: 25
+  - type: Sprite
+    sprite: _Hex/Objects/SpaceArtillery/57_shell.rsi
+    layers:
+    - state: 57-shell
+  # Override the fixture from BaseBulletTrigger with a larger collision box.
+  # BaseBulletTrigger defaults to 0.3×0.6 units which is too small relative
+  # to tile size and causes tunneling at high speeds. This shell is 57 mm —
+  # physically large — so a 0.5×0.5 hit-box is both realistic and safe.
+  - type: Fixtures
+    fixtures:
+      projectile:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.25,-0.25,0.25,0.25"
+        hard: false
+        mask:
+        - Impassable
+        - BulletImpassable
+  - type: ShipWeaponProjectile
+  - type: RadarBlip
+    scale: 1.5
+    shape: triangle
+    radarColor: "#1df1f5"
+  - type: TimedDespawn
+    # At projectileSpeed 40 u/s the shell reaches ~280 m before despawning,
+    # which is well beyond any realistic engagement range.
+    lifetime: 7
+  - type: PointLight
+    color: "#FCBA03"
+  - type: ExplodeOnTrigger
+  - type: Explosive
+    explosionType: Default
+    totalIntensity: 9
+    intensitySlope: 2
+    maxIntensity: 3
+    maxTileBreak: 1

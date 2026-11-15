@@ -1,0 +1,52 @@
+<controls:FancyWindow xmlns="https://spacestation14.io"
+                     xmlns:controls="clr-namespace:Content.Client.UserInterface.Controls"
+                     xmlns:ui="clr-namespace:Content.Client.Shuttles.UI"
+                     Title="{Loc 'gunnery-window-title'}"
+                     SetSize="1100 750"
+                     MinSize="800 600">
+    <BoxContainer Orientation="Horizontal">
+        <BoxContainer Orientation="Vertical" MinWidth="300" MaxWidth="300" Margin="5">
+            <controls:StripeBack MinSize="48 48">
+                <Label Name="ServerStatus" Access="Public"
+                       Text="{Loc 'gunnery-window-disconnected'}"
+                       HorizontalAlignment="Center"
+                       StyleClasses="LabelKeyText" />
+            </controls:StripeBack>
+
+            <Button Name="RefreshButton" Access="Public"
+                    Text="{Loc 'admin-logs-refresh'}"
+                    StyleClasses="ButtonSquare"
+                    Margin="2" />
+
+            <controls:StripeBack MinSize="48 48" Margin="0 6 0 0">
+                <Label Text="{Loc 'gunnery-guns'}"
+                       HorizontalAlignment="Center"
+                       StyleClasses="StatusFieldTitle" />
+            </controls:StripeBack>
+
+            <BoxContainer Orientation="Horizontal" Margin="0 2 0 2">
+                <Button Name="SelectAllButton" Access="Public"
+                        Text="{Loc 'gunnery-select-all'}"
+                        StyleClasses="OpenRight"
+                        HorizontalExpand="True" />
+                <Button Name="UnselectAllButton" Access="Public"
+                        Text="{Loc 'gunnery-unselect-all'}"
+                        StyleClasses="OpenLeft"
+                        HorizontalExpand="True" />
+            </BoxContainer>
+
+            <PanelContainer VerticalExpand="True">
+                <ScrollContainer VerticalExpand="True" HScrollEnabled="False">
+                    <BoxContainer Name="ControllablesBox" Access="Public"
+                                  Orientation="Vertical"
+                                  HorizontalExpand="True" />
+                </ScrollContainer>
+            </PanelContainer>
+        </BoxContainer>
+
+        <ui:ShuttleNavControl Name="NavRadar" Access="Public"
+                              HorizontalExpand="True"
+                              VerticalExpand="True"
+                              Margin="5" />
+    </BoxContainer>
+</controls:FancyWindow>

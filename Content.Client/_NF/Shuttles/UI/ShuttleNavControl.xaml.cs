@@ -1,3 +1,4 @@
+using Robust.Client.Input;
 using Content.Shared._NF.Shuttles.Events;
 using Content.Shared.Shuttles.BUIStates;
 using Robust.Shared.Physics.Components;
@@ -7,6 +8,7 @@ using Robust.Client.Graphics;
 using Robust.Shared.Collections;
 using Robust.Client.UserInterface;
 using Robust.Shared.Input;
+using Robust.Shared.Map;
 using Robust.Shared.Timing;
 using Content.Shared._NF.Radar;
 using Content.Client._NF.Radar;
@@ -190,8 +192,15 @@ public sealed partial class ShuttleNavControl
             return;
 
         _isMouseDown = true;
-        _lastMousePos = args.RelativePosition;
-        TryFireAtPosition(args.RelativePosition);
+        _lastMousePos = args.RelativePixelPosition;
+        TryFireAtPosition(args.RelativePixelPosition);
+    }
+
+
+    protected override void MouseMove(GUIMouseMoveEventArgs args)
+    {
+        base.MouseMove(args);
+        _lastMousePos = args.RelativePixelPosition;
     }
 
     protected override void FrameUpdate(FrameEventArgs args)
@@ -213,13 +222,10 @@ public sealed partial class ShuttleNavControl
             var currentTime = IoCManager.Resolve<IGameTiming>().CurTime.TotalSeconds;
             if (currentTime - _lastFireTime >= FireRateLimit)
             {
-                var mousePos = UserInterfaceManager.MousePositionScaled;
-                var relativePos = mousePos.Position - GlobalPosition;
-                if (relativePos != _lastMousePos)
-                {
-                    _lastMousePos = relativePos;
-                }
-                TryFireAtPosition(relativePos);
+                var inputManager = IoCManager.Resolve<IInputManager>();
+                var relativePixelPos = GetLocalPosition(inputManager.MouseScreenPosition);
+                _lastMousePos = relativePixelPos;
+                TryFireAtPosition(relativePixelPos);
                 _lastFireTime = (float)currentTime;
             }
         }
@@ -229,10 +235,27 @@ public sealed partial class ShuttleNavControl
         if (_coordinates == null || _rotation == null || OnRadarClick == null)
             return;
 
-        var a = InverseScalePosition(relativePosition);
-        var relativeWorldPos = new Vector2(a.X, -a.Y);
-        relativeWorldPos = _rotation.Value.RotateVec(relativeWorldPos);
-        var coords = _coordinates.Value.Offset(relativeWorldPos);
+        var xformQuery = EntManager.GetEntityQuery<TransformComponent>();
+        if (!xformQuery.TryGetComponent(_coordinates.Value.EntityId, out var xform))
+            return;
+
+        // Reconstruct the exact transform used by Draw and invert it. This keeps
+        // the shot under the visual crosshair even when the console/grid is rotated.
+        var posMatrix = Matrix3Helpers.CreateTransform(_coordinates.Value.Position, _rotation.Value);
+        var ourEntRot = RotateWithEntity ? _transform.GetWorldRotation(xform) : _rotation.Value;
+        var ourEntMatrix = Matrix3Helpers.CreateTransform(_transform.GetWorldPosition(xform), ourEntRot);
+        var shuttleToWorld = Matrix3x2.Multiply(posMatrix, ourEntMatrix);
+        Matrix3x2.Invert(shuttleToWorld, out var worldToShuttle);
+
+        var shuttleToView = Matrix3x2.CreateScale(new Vector2(MinimapScale, -MinimapScale)) *
+                            Matrix3x2.CreateTranslation(MidPoint);
+        var worldToView = worldToShuttle * shuttleToView;
+
+        if (!Matrix3x2.Invert(worldToView, out var viewToWorld))
+            return;
+
+        var worldPoint = Vector2.Transform(relativePosition, viewToWorld);
+        var coords = _transform.ToCoordinates(new MapCoordinates(worldPoint, xform.MapID));
         OnRadarClick?.Invoke(coords);
     }
 

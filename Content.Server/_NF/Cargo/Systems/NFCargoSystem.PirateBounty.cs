@@ -3,6 +3,7 @@ using System.Linq;
 using Content.Server._NF.Contraband.Components;
 using Content.Server._NF.Pirate.Components;
 using Content.Server.NameIdentifier;
+using Content.Shared.NameIdentifier;
 using Content.Shared._NF.Bank;
 using Content.Shared._NF.Pirate;
 using Content.Shared._NF.Pirate.Components;

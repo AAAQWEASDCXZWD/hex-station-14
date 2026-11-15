@@ -515,6 +515,11 @@ public enum LogType
     /// Shuttle info was changed.
     /// </summary>
     ShuttleInfoChanged = 208,
+
+    /// <summary>
+    /// A ship weapon was fired through a gunnery console.
+    /// </summary>
+    ShipgunFired = 209,
     #endregion Frontier Values
     // Frontier End
 

@@ -91,16 +91,6 @@ public sealed partial class ShuttleNavControl : BaseShuttleControl
             return;
 
         _isMouseDown = false;
-
-        if (_coordinates == null || _rotation == null || OnRadarClick == null)
-            return;
-        // End Frontier
-
-        var a = InverseScalePosition(args.RelativePosition);
-        var relativeWorldPos = a with { Y = -a.Y };
-        relativeWorldPos = _rotation.Value.RotateVec(relativeWorldPos);
-        var coords = _coordinates.Value.Offset(relativeWorldPos);
-        OnRadarClick?.Invoke(coords);
     }
 
     /// <summary>
@@ -502,6 +492,8 @@ public sealed partial class ShuttleNavControl : BaseShuttleControl
             }
         }
         // End Frontier
+
+        DrawFireControlOverlay(handle);
     }
 
     private void DrawDocks(DrawingHandleScreen handle, EntityUid uid, Matrix3x2 gridToView)

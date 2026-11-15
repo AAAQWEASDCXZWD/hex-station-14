@@ -1,11 +1,12 @@
 // New Frontiers - This file is licensed under AGPLv3
 // Copyright (c) 2024 New Frontiers Contributors
 // See AGPLv3.txt for details.
-using Content.Server._NF.Station.Components;
+using System.Numerics;
 using Content.Server.Shuttles.Components;
 using Content.Shared._NF.Shuttles.Events;
 using Content.Shared._NF.Shipyard.Components;
 using Content.Shared.Shuttles.Components;
+using Robust.Shared.Physics; // Mono
 using Robust.Shared.Physics.Components;
 
 namespace Content.Server.Shuttles.Systems;
@@ -13,18 +14,21 @@ namespace Content.Server.Shuttles.Systems;
 public sealed partial class ShuttleSystem
 {
     [Dependency] private readonly RadarConsoleSystem _radarConsole = default!;
+
     private const float SpaceFrictionStrength = 0.0075f;
     private const float DampenDampingStrength = 0.25f;
     private const float AnchorDampingStrength = 2.5f;
+
     private void NfInitialize()
     {
         SubscribeLocalEvent<ShuttleConsoleComponent, SetInertiaDampeningRequest>(OnSetInertiaDampening);
-        SubscribeLocalEvent<ShuttleConsoleComponent, SetServiceFlagsRequest>(NfSetServiceFlags);
+        SubscribeLocalEvent<ShuttleConsoleComponent, SetMaxShuttleSpeedRequest>(OnSetMaxShuttleSpeed);
+        SubscribeLocalEvent<ShuttleConsoleComponent, SetServiceFlagsRequest>(NfSetServiceFlags); // Frontier
         SubscribeLocalEvent<ShuttleConsoleComponent, SetTargetCoordinatesRequest>(NfSetTargetCoordinates);
         SubscribeLocalEvent<ShuttleConsoleComponent, SetHideTargetRequest>(NfSetHideTarget);
     }
 
-    private bool SetInertiaDampening(EntityUid uid, PhysicsComponent physicsComponent, ShuttleComponent shuttleComponent, TransformComponent transform, InertiaDampeningMode mode)
+    public bool SetInertiaDampening(EntityUid uid, PhysicsComponent physicsComponent, ShuttleComponent shuttleComponent, TransformComponent transform, InertiaDampeningMode mode) // Mono: public for ship AI (ported with #4064)
     {
         if (!transform.GridUid.HasValue)
         {
@@ -37,8 +41,8 @@ public sealed partial class ShuttleSystem
             return false;
         }
 
-        if (!EntityManager.HasComponent<ShuttleDeedComponent>(transform.GridUid) ||
-            EntityManager.HasComponent<StationDampeningComponent>(_station.GetOwningStation(transform.GridUid)))
+        // Mono - remove shuttle deed requirement, kill StationDampening
+        if ((physicsComponent.BodyType & BodyType.Static) != 0)
         {
             return false;
         }
@@ -72,14 +76,34 @@ public sealed partial class ShuttleSystem
             component.DampeningMode = args.Mode;
     }
 
+    private void OnSetMaxShuttleSpeed(EntityUid uid, ShuttleConsoleComponent component, SetMaxShuttleSpeedRequest args)
+    {
+        // Ensure that the entity requested is a valid shuttle
+        var xform = Transform(uid);
+        if (!xform.GridUid.HasValue ||
+            !TryComp<ShuttleComponent>(xform.GridUid, out var shuttleComponent) ||
+            !TryComp<PilotComponent>(args.Actor, out var pilot))
+        {
+            return;
+        }
+
+        var maxSpeed = args.MaxSpeed;
+        if (maxSpeed is { } speed)
+            maxSpeed = Math.Max(speed, 0f);
+
+        pilot.SetMaxVelocity = maxSpeed;
+
+        // Refresh the shuttle consoles to update the UI
+        _console.RefreshShuttleConsoles(xform.GridUid.Value);
+    }
+
     public InertiaDampeningMode NfGetInertiaDampeningMode(EntityUid entity)
     {
         if (!EntityManager.TryGetComponent<TransformComponent>(entity, out var xform))
             return InertiaDampeningMode.Dampen;
 
-        // Not a shuttle, shouldn't be togglable
-        if (!EntityManager.HasComponent<ShuttleDeedComponent>(xform.GridUid) ||
-            EntityManager.HasComponent<StationDampeningComponent>(_station.GetOwningStation(xform.GridUid)))
+        // Not a shuttle, shouldn't be togglable // Mono - remove shuttle deed requirement, kill StationDampening
+        if (TryComp<PhysicsComponent>(xform.GridUid, out var body) && (body.BodyType & BodyType.Static) != 0)
             return InertiaDampeningMode.Station;
 
         if (!EntityManager.TryGetComponent(xform.GridUid, out ShuttleComponent? shuttle))
@@ -134,7 +158,7 @@ public sealed partial class ShuttleSystem
 
         var gridUid = transform.GridUid.Value;
 
-        // Set the service flags on the IFFComponent.
+        // Get the service flags from the IFFComponent.
         if (!EntityManager.TryGetComponent<IFFComponent>(gridUid, out var iffComponent))
             return ServiceFlags.None;
 
@@ -157,9 +181,8 @@ public sealed partial class ShuttleSystem
         if (!EntityManager.TryGetComponent<IFFComponent>(gridUid, out var iffComponent))
             return;
 
-        iffComponent.ServiceFlags = args.ServiceFlags;
-        _console.RefreshShuttleConsoles(gridUid);
-        Dirty(gridUid, iffComponent);
+        SetServiceFlags(gridUid, args.ServiceFlags, iffComponent); // honor the ReadOnly POI IFF guard instead of writing the field directly
+        _console.RefreshShuttleConsoles(gridUid); // push updated nav state to the shuttle consoles
     }
 
     public void NfSetTargetCoordinates(EntityUid uid, ShuttleConsoleComponent component, SetTargetCoordinatesRequest args)
