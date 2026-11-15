@@ -659,7 +659,6 @@ public sealed class ThrusterSystem : EntitySystem
     }
 
     // Frontier: upgradeable machine parts, separate EMP handler
-    // Mono: replaced array-lookup with exponential formula from Triad
     private void OnRefreshParts(EntityUid uid, ThrusterComponent component, RefreshPartsEvent args)
     {
         if (component.IsOn) // safely disable thruster to prevent negative thrust
@@ -667,8 +666,20 @@ public sealed class ThrusterSystem : EntitySystem
 
         var thrustRating = args.PartRatings[component.MachinePartThrust];
 
-        // Exponential scaling: each part level multiplies thrust by PartRatingThrustMultiplier
-        component.Thrust = component.BaseThrust * MathF.Pow(component.PartRatingThrustMultiplier, thrustRating - 1);
+        if (component.ThrustPerPartLevel.Length <= 0)
+            component.Thrust = component.BaseThrust;
+        else if (thrustRating <= 1)
+            component.Thrust = component.ThrustPerPartLevel[0];
+        else if (thrustRating > component.ThrustPerPartLevel.Length)
+            component.Thrust = component.ThrustPerPartLevel[^1];
+        else
+        {
+            var idx = (int)thrustRating - 1;
+            component.Thrust = component.ThrustPerPartLevel[idx];
+            // Linearly interpolate if fractional
+            if (idx < component.ThrustPerPartLevel.Length - 1)
+                component.Thrust += (thrustRating - 1 - idx) * (component.ThrustPerPartLevel[idx + 1] - component.ThrustPerPartLevel[idx]);
+        }
 
         if (component.Enabled && CanEnable(uid, component))
             EnableThruster(uid, component);

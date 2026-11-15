@@ -10,7 +10,6 @@ namespace Content.Client.Shuttles.UI
     public sealed partial class ShuttleConsoleWindow
     {
         public event Action<NetEntity?, InertiaDampeningMode>? OnInertiaDampeningModeChanged;
-        public event Action<float?>? OnMaxShuttleSpeedChanged;
         public event Action<NetEntity?, ServiceFlags>? OnServiceFlagsChanged;
         public event Action<NetEntity?, Vector2>? OnSetTargetCoordinates;
         public event Action<NetEntity?, bool>? OnSetHideTarget;
@@ -20,10 +19,6 @@ namespace Content.Client.Shuttles.UI
             NavContainer.OnInertiaDampeningModeChanged += (entity, mode) =>
             {
                 OnInertiaDampeningModeChanged?.Invoke(entity, mode);
-            };
-            NavContainer.OnMaxShuttleSpeedChanged += (maxSpeed) =>
-            {
-                OnMaxShuttleSpeedChanged?.Invoke(maxSpeed);
             };
             NavContainer.OnServiceFlagsChanged += (entity, flags) =>
             {

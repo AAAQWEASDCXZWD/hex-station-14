@@ -37,10 +37,6 @@ namespace Content.Shared.Shuttles.Components
         [DataField]
         public ProtoId<AlertPrototype> PilotingAlert = "PilotingShuttle";
 
-        // Mono
-        [ViewVariables]
-        public float? SetMaxVelocity = null;
-
         public override bool SendOnlyToOwner => true;
     }
 

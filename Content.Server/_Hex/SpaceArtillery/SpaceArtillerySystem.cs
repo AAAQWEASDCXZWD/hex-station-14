@@ -37,14 +37,6 @@ public sealed partial class SpaceArtillerySystem : EntitySystem
         SubscribeLocalEvent<SpaceArtilleryComponent, ChargeChangedEvent>(OnBatteryChargeChanged);
         SubscribeLocalEvent<ShipWeaponProjectileComponent, ProjectileHitEvent>(OnProjectileHit);
         SubscribeLocalEvent<ShipGunClassComponent, ExaminedEvent>(OnExamined);
-
-        InitializeWallTrace();
-    }
-
-    public override void Update(float frameTime)
-    {
-        base.Update(frameTime);
-        UpdateWallTrace(frameTime);
     }
 
     private void OnAmmoShot(EntityUid uid, SpaceArtilleryComponent component, AmmoShotEvent args)

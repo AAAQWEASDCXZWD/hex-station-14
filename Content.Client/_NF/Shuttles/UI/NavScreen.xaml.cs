@@ -2,7 +2,6 @@
 // Copyright (c) 2024 New Frontiers Contributors
 // See AGPLv3.txt for details.
 using System.Numerics;
-using System.Text.RegularExpressions;
 using Content.Shared._NF.Shuttles.Events;
 using Content.Shared.Shuttles.BUIStates;
 using Content.Shared.Shuttles.Components;
@@ -14,7 +13,6 @@ namespace Content.Client.Shuttles.UI
     {
         private readonly ButtonGroup _buttonGroup = new();
         public event Action<NetEntity?, InertiaDampeningMode>? OnInertiaDampeningModeChanged;
-        public event Action<float?>? OnMaxShuttleSpeedChanged;
         public event Action<NetEntity?, ServiceFlags>? OnServiceFlagsChanged;
         public event Action<NetEntity?, Vector2>? OnSetTargetCoordinates;
         public event Action<NetEntity?, bool>? OnSetHideTarget;
@@ -27,9 +25,6 @@ namespace Content.Client.Shuttles.UI
 
             MaximumIFFDistanceValue.GetChild(0).GetChild(1).Margin = new Thickness(8, 0, 0, 0);
             MaximumIFFDistanceValue.OnValueChanged += args => OnRangeFilterChanged(args);
-
-            // Frontier - Maximum Shuttle Speed
-            MaximumShuttleSpeedValue.OnTextChanged += args => OnMaxSpeedChanged(args);
 
             DampenerOff.OnPressed += _ => SetDampenerMode(InertiaDampeningMode.Off);
             DampenerOn.OnPressed += _ => SetDampenerMode(InertiaDampeningMode.Dampen);
@@ -97,14 +92,6 @@ namespace Content.Client.Shuttles.UI
         private void OnRangeFilterChanged(int value)
         {
             NavRadar.MaximumIFFDistance = value;
-        }
-
-        // Frontier - Maximum Shuttle Speed
-        private void OnMaxSpeedChanged(LineEdit.LineEditEventArgs value)
-        {
-            MaximumShuttleSpeedValue.Text = Regex.Replace(MaximumShuttleSpeedValue.Text, "[^0-9]", "");
-            float.TryParse(MaximumShuttleSpeedValue.Text, out var speed);
-            OnMaxShuttleSpeedChanged?.Invoke(MaximumShuttleSpeedValue.Text == "" ? null : speed);
         }
 
         private void ToggleServiceFlags(ServiceFlags flags, bool updateButtonsOnly = false)

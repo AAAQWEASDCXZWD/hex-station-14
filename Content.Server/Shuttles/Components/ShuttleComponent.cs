@@ -17,10 +17,10 @@ namespace Content.Server.Shuttles.Components
         public const float BrakeCoefficient = 1.5f;
 
         /// <summary>
-        /// Mono - velocity that 2x slowdown will be applied at. (4x at 2x this, 8x at 3x this, etc.)
+        /// Maximum velocity.
         /// </summary>
         [ViewVariables(VVAccess.ReadWrite)]
-        public float BaseMaxLinearVelocity = 80f;
+        public float BaseMaxLinearVelocity = 23.07f;  //Frontier 60 - 23.07. Upstream has it set to 60 to test and for collisions currently. Also, for some reason this value is increased by 30%, not sure if parts related or otherwise, so we do a 23.07 to reach a tier 1 velocity of 30.
 
         public const float MaxAngularVelocity = 4f;
 
@@ -74,25 +74,5 @@ namespace Content.Server.Shuttles.Components
         /// </summary>
         [DataField]
         public float DampingModifier;
-
-        // <Mono>
-        /// <summary>
-        /// Thrust acceleration vector last update.
-        /// </summary>
-        [DataField]
-        public Vector2 LastThrust = Vector2.Zero;
-
-        /// <summary>
-        /// Multiplier to angular thrust. Set depending on pilot.
-        /// </summary>
-        [ViewVariables]
-        public float AngularMultiplier = 1f;
-
-        /// <summary>
-        /// Multiplier to linear thrust. Set depending on pilot.
-        /// </summary>
-        [ViewVariables]
-        public float AccelerationMultiplier = 1f;
-        // </Mono>
     }
 }

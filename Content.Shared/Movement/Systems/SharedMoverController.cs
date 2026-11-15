@@ -61,7 +61,6 @@ public abstract partial class SharedMoverController : VirtualController
     protected EntityQuery<PullableComponent> PullableQuery;
     protected EntityQuery<TransformComponent> XformQuery;
     protected EntityQuery<NoShoesSilentFootstepsComponent> NoShoesSilentQuery; // DeltaV - NoShoesSilentFootstepsComponent
-    protected EntityQuery<JetpackUserComponent> JetpackUserQuery; // Hex: Jetpack uncapped maneuvering
 
     private static readonly ProtoId<TagPrototype> FootstepSoundTag = "FootstepSound";
 
@@ -96,7 +95,6 @@ public abstract partial class SharedMoverController : VirtualController
         MapGridQuery = GetEntityQuery<MapGridComponent>();
         MapQuery = GetEntityQuery<MapComponent>();
         NoShoesSilentQuery = GetEntityQuery<NoShoesSilentFootstepsComponent>(); // DeltaV - NoShoesSilentFootstepsComponent
-        JetpackUserQuery = GetEntityQuery<JetpackUserComponent>(); // Hex: Jetpack uncapped maneuvering
 
         SubscribeLocalEvent<MovementSpeedModifierComponent, TileFrictionEvent>(OnTileFriction);
 
@@ -296,14 +294,8 @@ public abstract partial class SharedMoverController : VirtualController
         var minimumFrictionSpeed = moveSpeedComponent?.MinimumFrictionSpeed ?? MovementSpeedModifierComponent.DefaultMinimumFrictionSpeed;
         Friction(minimumFrictionSpeed, frameTime, friction, ref velocity);
 
-        var isJetpackUser = JetpackUserQuery.HasComp(uid);
         if (!weightless || touching)
-        {
-            if (isJetpackUser && weightless)
-                AccelerateJetpack(ref velocity, in wishDir, accel, frameTime);
-            else
-                Accelerate(ref velocity, in wishDir, accel, frameTime);
-        }
+            Accelerate(ref velocity, in wishDir, accel, frameTime);
 
         SetWishDir((uid, mover), wishDir);
 
@@ -450,22 +442,6 @@ public abstract partial class SharedMoverController : VirtualController
         var accelSpeed = accel * frameTime * wishSpeed;
         accelSpeed = MathF.Min(accelSpeed, addSpeed);
 
-        currentVelocity += wishDir * accelSpeed;
-    }
-
-    /// <summary>
-    /// Hex: Jetpack thruster acceleration without an arbitrary max speed cap,
-    /// enabling players to maneuver at high speeds around shuttles.
-    /// </summary>
-    public static void AccelerateJetpack(ref Vector2 currentVelocity, in Vector2 velocity, float accel, float frameTime)
-    {
-        if (velocity == Vector2.Zero)
-            return;
-
-        var wishDir = velocity.Normalized();
-        var wishSpeed = velocity.Length();
-
-        var accelSpeed = accel * frameTime * wishSpeed;
         currentVelocity += wishDir * accelSpeed;
     }
 

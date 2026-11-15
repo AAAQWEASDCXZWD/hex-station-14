@@ -13,7 +13,7 @@
   - type: AmmoCounter
   - type: Gun
     fireRate: 3
-    projectileSpeed: 40
+    projectileSpeed: 80
     minAngle: 0
     maxAngle: 3
     burstCooldown: 0.4
