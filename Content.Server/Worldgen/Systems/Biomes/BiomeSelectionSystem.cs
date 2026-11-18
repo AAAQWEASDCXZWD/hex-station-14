@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Numerics;
 using Content.Server.Worldgen.Components;
 using Content.Server.Worldgen.Prototypes;
 using Robust.Shared.Prototypes;
@@ -25,14 +26,14 @@ public sealed class BiomeSelectionSystem : BaseWorldSystem
     private void OnWorldChunkAdded(EntityUid uid, BiomeSelectionComponent component, ref WorldChunkAddedEvent args)
     {
         var coords = args.Coords;
-        var lengthSquared = WorldGen.ChunkToWorldCoordsCentered(coords).LengthSquared(); // Frontier: cache world coords of center of chunk
+        var centerPos = WorldGen.ChunkToWorldCoordsCentered(coords); // Frontier: cache world coords of center of chunk
 
         foreach (var biomeId in component.Biomes)
         {
             var biome = _proto.Index<BiomePrototype>(biomeId);
 
-            // Frontier: check range
-            if (!CheckBiomeRange(biome, lengthSquared))
+            // Frontier/Hex: check range relative to CenterOffset
+            if (!CheckBiomeRange(biome, centerPos))
                 continue;
             // End Frontier
 
@@ -58,14 +59,15 @@ public sealed class BiomeSelectionSystem : BaseWorldSystem
         component.Biomes = sorted; // my hopes and dreams rely on this being pre-sorted by priority.
     }
 
-    // Frontier: check that a given point (passed as the square of its length) meets the range requirements of a biome
-    private bool CheckBiomeRange(BiomePrototype biome, float centerLengthSquared)
+    // Frontier/Hex: check that a given point meets the range requirements of a biome (relative to its CenterOffset)
+    private bool CheckBiomeRange(BiomePrototype biome, Vector2 centerPos)
     {
         if (biome.DistanceRangeSquared == null)
             return true;
 
-        return centerLengthSquared >= biome.DistanceRangeSquared.Value.X
-            && centerLengthSquared <= biome.DistanceRangeSquared.Value.Y;
+        var distSquared = (centerPos - biome.CenterOffset).LengthSquared();
+        return distSquared >= biome.DistanceRangeSquared.Value.X
+            && distSquared <= biome.DistanceRangeSquared.Value.Y;
     }
     // End Frontier
 

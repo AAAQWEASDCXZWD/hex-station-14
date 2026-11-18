@@ -25,6 +25,13 @@ public sealed partial class BiomePrototype : IPrototype, IInheritingPrototype
     [IdDataField]
     public string ID { get; private set; } = default!;
 
+    // Frontier/Hex: center offset for biomes positioned away from world origin (0, 0)
+    /// <summary>
+    ///     The center position from which DistanceRange is measured. Defaults to (0, 0).
+    /// </summary>
+    [DataField]
+    public Vector2 CenterOffset { get; set; } = Vector2.Zero;
+
     // Frontier: distances
     /// <summary>
     ///     The valid range of biome coordinate lengths (3000, 4000) => 5000
@@ -40,7 +47,7 @@ public sealed partial class BiomePrototype : IPrototype, IInheritingPrototype
     public Vector2? DistanceRange
     {
         get { return _distanceRange; }
-        private set
+        set
         {
             _distanceRange = value;
 

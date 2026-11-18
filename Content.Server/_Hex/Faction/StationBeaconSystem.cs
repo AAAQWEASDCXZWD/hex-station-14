@@ -1,4 +1,5 @@
 using System.Linq;
+using Content.Server._Hex.StationModifiers;
 using Content.Server.Explosion.EntitySystems;
 using Content.Server.Shuttles.Systems;
 using Content.Shared._Hex.Faction;
@@ -38,6 +39,7 @@ public sealed class StationBeaconSystem : EntitySystem
     [Dependency] private readonly ShuttleSystem _shuttle = default!;
     [Dependency] private readonly UserInterfaceSystem _ui = default!;
     [Dependency] private readonly ILogManager _log = default!;
+    [Dependency] private readonly GridStationModifierSystem _gridModifier = default!;
 
     private ISawmill _sawmill = default!;
 
@@ -134,6 +136,8 @@ public sealed class StationBeaconSystem : EntitySystem
 
     private void OnStartup(EntityUid uid, StationBeaconComponent comp, ComponentStartup args)
     {
+        _gridModifier.OnBeaconStartup(uid);
+
         // Beacons from older saves may only have Active set.
         if (!comp.HasClaim && comp.Active)
         {
@@ -155,6 +159,8 @@ public sealed class StationBeaconSystem : EntitySystem
 
     private void OnShutdown(EntityUid uid, StationBeaconComponent comp, ComponentShutdown args)
     {
+        _gridModifier.OnBeaconShutdown(uid);
+
         // A beacon can be deleted by something other than its own boundary check.
         ReleaseClaim(uid, comp);
     }
@@ -173,7 +179,10 @@ public sealed class StationBeaconSystem : EntitySystem
         // Parent changes can pass through transient coordinates (e.g. containers), so let the periodic
         // check validate the final position instead of exploding during the transfer.
         if (args.ParentChanged)
+        {
+            _gridModifier.UpdateBeaconGrid(uid);
             return;
+        }
 
         if (IsPausedOrStored(uid, args.Component))
         {
@@ -190,6 +199,8 @@ public sealed class StationBeaconSystem : EntitySystem
 
     private void OnAnchorChanged(EntityUid uid, StationBeaconComponent comp, ref AnchorStateChangedEvent args)
     {
+        _gridModifier.UpdateBeaconGrid(uid);
+
         if (args.Anchored)
         {
             TryActivate(uid, comp, null);

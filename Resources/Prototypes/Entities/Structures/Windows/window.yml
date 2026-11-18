@@ -8,6 +8,7 @@
     snap:
     - Window
   components:
+  - type: StationReinforced
   - type: Anchorable
     flags:
     - Anchorable
@@ -134,6 +135,7 @@
     snap:
     - Window
   components:
+  - type: StationReinforced
   - type: WallMount
     arc: 360 # interact despite grilles
   - type: Tag

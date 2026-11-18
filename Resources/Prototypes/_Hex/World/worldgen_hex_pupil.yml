@@ -1,0 +1,11 @@
+- type: worldgenConfig
+  id: HexPupil
+  components:
+    - type: WorldController
+    - type: BiomeSelection
+      biomes:
+        - HexPupilClusterCore
+        - HexPupilClusterPeriphery
+        - HexPupilBorderTrail
+        - HexPupilBorderTrailBuffer
+        - HexPupilPlateau

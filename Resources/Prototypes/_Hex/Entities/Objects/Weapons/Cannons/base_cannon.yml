@@ -15,6 +15,7 @@
   placement:
     mode: SnapgridCenter
   components:
+  - type: StationReinforced
   - type: Damageable
     damageContainer: StructuralInorganic
     damageModifierSet: StructuralMetallic

@@ -9,6 +9,7 @@
     snap:
     - Wall
   components:
+  - type: StationReinforced
   - type: Anchorable
     flags:
     - Anchorable

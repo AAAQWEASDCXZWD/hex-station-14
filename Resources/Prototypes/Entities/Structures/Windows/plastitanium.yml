@@ -9,6 +9,7 @@
     snap:
     - Window
   components:
+  - type: StationReinforced
   - type: RCDDeconstructable
     deconstructable: false
   - type: MeleeSound

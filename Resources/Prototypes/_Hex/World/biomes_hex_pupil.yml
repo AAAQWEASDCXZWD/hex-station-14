@@ -1,0 +1,415 @@
+- type: spaceBiome
+  id: HexPupilBiomeBase
+  abstract: true
+  noiseRanges: {}
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityPlateau
+    randomCancelChance: 0.05
+    safetyZoneRadius: 6.0
+  - type: NoiseDrivenDebrisSelector
+    noiseChannel: Wreck
+  - type: NoiseRangeCarver
+    ranges:
+    - 0.4, 0.6
+    noiseChannel: Carver
+  - type: PointSetDistanceCarver
+
+# -----------------------------------------------------------------------------
+# 1. ОКО ЖАХУ (ЗМІЩЕНЕ СКУПЧЕННЯ)
+# Центр: (-100, 1000) [пропорція -1, 10], радіус 0..450м
+# Неприємне місце: купа великих і масивних астероїдів + дрібні між ними
+# -----------------------------------------------------------------------------
+- type: spaceBiome
+  id: HexPupilClusterCore
+  parent: HexPupilBiomeBase
+  priority: 10
+  centerOffset: -100, 1000
+  distanceRange: 0, 450
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityEye
+    randomCancelChance: 0.05
+    safetyZoneRadius: 6.0
+  - type: SimpleDebrisSelector
+    debrisTable:
+    # Дрібні між ними, що заважають маневрувати:
+    - id: NFAsteroidDebrisSmall
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisSmall
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisMedium
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisMedium
+      prob: 1.0
+      orGroup: debris
+    # Велика купа великих та масивних брил:
+    - id: NFAsteroidDebrisLarge
+      prob: 2.0
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidAndesiteDebrisLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisLarge
+      prob: 1.5
+      orGroup: debris
+    # Extra Large
+    - id: NFAsteroidDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisExtraLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisExtraLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisExtraLarge
+      prob: 1.0
+      orGroup: debris
+    # Massive / Extra Massive / Gigantic
+    - id: NFAsteroidDebrisMassive
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisExtraMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisGigantic
+      prob: 0.6
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisGigantic
+      prob: 0.5
+      orGroup: debris
+  - type: NoiseDrivenDebrisSelector
+    debrisTable:
+    - id: NFWreckDebrisMedium
+      prob: 0.4
+      orGroup: wreck
+    - id: NFWreckDebrisLarge
+      prob: 0.6
+      orGroup: wreck
+    - id: NFWreckDebrisExtraLarge
+      prob: 0.8
+      orGroup: wreck
+    - id: NFWreckDebrisHuge
+      prob: 0.4
+      orGroup: wreck
+
+# -----------------------------------------------------------------------------
+# 2. МЕЖА ОКА (ПЕРИФЕРІЯ / ОБІДОК)
+# Діапазон: 450м .. 675м
+# 50% на 50% без гігантів: половина дрібних від плато + половина великих від Ока
+# -----------------------------------------------------------------------------
+- type: spaceBiome
+  id: HexPupilClusterPeriphery
+  parent: HexPupilBiomeBase
+  priority: 9
+  centerOffset: -100, 1000
+  distanceRange: 450, 675
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityBuffer
+    randomCancelChance: 0.05
+    safetyZoneRadius: 7.0
+  - type: SimpleDebrisSelector
+    debrisTable:
+    # 50% дрібні від плато:
+    - id: NFAsteroidDebrisSmall
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisSmall
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisMedium
+      prob: 1.2
+      orGroup: debris
+    # 50% від зони (лише великі/екстра-великі, БЕЗ гігантів):
+    - id: NFAsteroidDebrisLarge
+      prob: 2.0
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidDebrisExtraLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+  - type: NoiseDrivenDebrisSelector
+    debrisTable:
+    - id: NFWreckDebrisSmall
+      prob: 1.0
+      orGroup: wreck
+    - id: NFWreckDebrisMedium
+      prob: 0.5
+      orGroup: wreck
+    - id: NFWreckDebrisLarge
+      prob: 0.2
+      orGroup: wreck
+
+# -----------------------------------------------------------------------------
+# 3. ПОЯС (ГУСТИЙ АСТЕРОЇДНИЙ ШЛЕЙФ ПО МЕЖІ КАРТИ)
+# Діапазон: ~1888м .. ~2788м (товщина ~900м / 1 гекс)
+# Густий пояс зі здебільшого великих астероїдів
+# -----------------------------------------------------------------------------
+- type: spaceBiome
+  id: HexPupilBorderTrail
+  parent: HexPupilBiomeBase
+  priority: 8
+  centerOffset: 0, 0
+  distanceRange: 1888, 2788
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityBelt
+    randomCancelChance: 0.05
+    safetyZoneRadius: 6.0
+  - type: SimpleDebrisSelector
+    debrisTable:
+    # Трохи середніх для заповнення простору:
+    - id: NFAsteroidDebrisMedium
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisMedium
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisMedium
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisMedium
+      prob: 0.8
+      orGroup: debris
+    # ЗДЕБІЛЬШОГО ВЕЛИКІ АСТЕРОЇДИ (Large, ExtraLarge):
+    - id: NFAsteroidDebrisLarge
+      prob: 2.5
+      orGroup: debris
+    - id: NFAsteroidAndesiteDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidSandDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidRockDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisLarge
+      prob: 1.8
+      orGroup: debris
+    # Extra Large
+    - id: NFAsteroidDebrisExtraLarge
+      prob: 2.0
+      orGroup: debris
+    - id: NFAsteroidAndesiteDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidSandDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidRockDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisExtraLarge
+      prob: 1.5
+      orGroup: debris
+    # Масивні та гігантські брили поясу:
+    - id: NFAsteroidDebrisMassive
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisExtraMassive
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisGigantic
+      prob: 0.6
+      orGroup: debris
+  - type: NoiseDrivenDebrisSelector
+    debrisTable:
+    - id: NFWreckDebrisMedium
+      prob: 0.3
+      orGroup: wreck
+    - id: NFWreckDebrisLarge
+      prob: 0.6
+      orGroup: wreck
+    - id: NFWreckDebrisExtraLarge
+      prob: 0.8
+      orGroup: wreck
+    - id: NFWreckDebrisHuge
+      prob: 0.4
+      orGroup: wreck
+
+# -----------------------------------------------------------------------------
+# 4. МЕЖА ПОЯСУ (БУФЕР ШЛЕЙФУ)
+# Діапазон: ~1438м .. ~1888м
+# 50% на 50% без гігантів: половина дрібних від плато + половина великих від поясу
+# -----------------------------------------------------------------------------
+- type: spaceBiome
+  id: HexPupilBorderTrailBuffer
+  parent: HexPupilBiomeBase
+  priority: 7
+  centerOffset: 0, 0
+  distanceRange: 1438, 1888
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityBuffer
+    randomCancelChance: 0.05
+    safetyZoneRadius: 7.0
+  - type: SimpleDebrisSelector
+    debrisTable:
+    # 50% дрібні від плато:
+    - id: NFAsteroidDebrisSmall
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisSmall
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisMedium
+      prob: 1.2
+      orGroup: debris
+    # 50% від поясу (лише великі/екстра-великі, БЕЗ гігантів):
+    - id: NFAsteroidDebrisLarge
+      prob: 2.0
+      orGroup: debris
+    - id: NFAsteroidAndesiteDebrisLarge
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisLarge
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisLarge
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisLarge
+      prob: 1.0
+      orGroup: debris
+    - id: NFAsteroidDebrisExtraLarge
+      prob: 1.2
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisExtraLarge
+      prob: 0.8
+      orGroup: debris
+  - type: NoiseDrivenDebrisSelector
+    debrisTable:
+    - id: NFWreckDebrisSmall
+      prob: 1.0
+      orGroup: wreck
+    - id: NFWreckDebrisMedium
+      prob: 0.4
+      orGroup: wreck
+    - id: NFWreckDebrisLarge
+      prob: 0.2
+      orGroup: wreck
+
+# -----------------------------------------------------------------------------
+# 5. ПЛАТО (ФОЛБЕК — ВСЕ, ЩО НЕ ОКО І НЕ ПОЯС)
+# Усіяна дрібними астероїдами пустка:
+# Малий корабель пролітає хоч по прямій (зазори ~15-20м),
+# а великий шатл (15-20м габариту) вже мусить постійно маневрувати.
+# Тільки Small і Medium, без гігантських брил!
+# -----------------------------------------------------------------------------
+- type: spaceBiome
+  id: HexPupilPlateau
+  parent: HexPupilBiomeBase
+  priority: 0
+  chunkComponents:
+  - type: DebrisFeaturePlacerController
+    densityNoiseChannel: HexDensityPlateau
+    randomCancelChance: 0.05
+    safetyZoneRadius: 6.0
+  - type: SimpleDebrisSelector
+    debrisTable:
+    # Small ("пісок" і дрібниця):
+    - id: NFAsteroidDebrisSmall
+      prob: 2.0
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisSmall
+      prob: 1.8
+      orGroup: debris
+    # Medium (основні орієнтири):
+    - id: NFAsteroidDebrisMedium
+      prob: 2.2
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisMedium
+      prob: 1.8
+      orGroup: debris
+    - id: NFAsteroidAndesiteDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidBasaltDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidChromiteDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    - id: NFAsteroidRockDebrisMedium
+      prob: 1.5
+      orGroup: debris
+    # Трохи Large як рідкісні перешкоди:
+    - id: NFAsteroidDebrisLarge
+      prob: 0.5
+      orGroup: debris
+    - id: NFAsteroidScrapDebrisLarge
+      prob: 0.4
+      orGroup: debris
+  - type: NoiseDrivenDebrisSelector
+    debrisTable:
+    - id: NFWreckDebrisSmall
+      prob: 0.8
+      orGroup: wreck
+    - id: NFWreckDebrisMedium
+      prob: 0.2
+      orGroup: wreck

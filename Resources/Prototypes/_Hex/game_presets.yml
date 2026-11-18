@@ -1,0 +1,13 @@
+- type: gamePreset
+  id: HexPupil
+  alias:
+    - hexpupil
+    - pupil
+    - hex-pupil
+  name: hex-pupil-title
+  description: hex-pupil-description
+  showInVote: true
+  rules:
+    - HexPupilAdventure
+    - NFBasicStationEventScheduler
+    - NFRoundstartVariation

@@ -74,6 +74,9 @@ public sealed class WorldgenConfigSystem : EntitySystem
             return;
 
         var target = _map.GetMapOrInvalid(_gameTicker.DefaultMap);
+        if (HasComp<WorldControllerComponent>(target))
+            return;
+
         Log.Debug($"Trying to configure {_gameTicker.DefaultMap}, aka {ToPrettyString(target)} aka {target}");
         var cfg = _proto.Index<WorldgenConfigPrototype>(_worldgenConfig);
 

@@ -1,0 +1,7 @@
+- type: entity
+  id: HexPupilAdventure
+  parent: BaseGameRule
+  categories: [ HideSpawnMenu ]
+  components:
+  - type: HexPupilRule
+  - type: NFAdventureRule

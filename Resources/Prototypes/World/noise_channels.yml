@@ -4,19 +4,19 @@
   fractalLacunarityByPi: 0.666666666
   remapTo0Through1: true
   clippingRanges:
-    - 0.4, 0.6
-  clippedValue: 1.658 # magic number for chunk size.
-  inputMultiplier: 6 # Makes density hopefully low noise in the local area while still being interesting at scale.
-  outputMultiplier: 50.0 # We scale density up significantly for more human-friendly numbers.
-  minimum: 45.0
+  - 0.4, 0.6
+  clippedValue: 15.258
+  inputMultiplier: 3
+  outputMultiplier: 5000.0
+  minimum: 0.25
 
 - type: noiseChannel
   id: DensityUnclipped
   noiseType: Perlin
   fractalLacunarityByPi: 0.666666666
   remapTo0Through1: true
-  inputMultiplier: 6  # Makes density hopefully low noise in the local area while still being interesting at scale.
-  outputMultiplier: 50.0 # We scale density up significantly for more human-friendly numbers.
+  inputMultiplier: 60
+  outputMultiplier: 50.0
   minimum: 45.0
 
 - type: noiseChannel
@@ -24,22 +24,69 @@
   noiseType: Perlin
   fractalLacunarityByPi: 0.666666666
   remapTo0Through1: true
-  inputMultiplier: 6
+  inputMultiplier: 500
 
 - type: noiseChannel
   id: Wreck
   noiseType: Perlin
   fractalLacunarityByPi: 0.666666666
   clippingRanges:
-    - 0.0, 0.4
+  - 0.0, 0.4
   clippedValue: 0
   remapTo0Through1: true
-  inputMultiplier: 16 # Makes wreck concentration very low noise at scale.
-  outputMultiplier: 0.35 # Frontier: fewer wrecks
+  inputMultiplier: 16
+  outputMultiplier: 0.35
 
 - type: noiseChannel
   id: Temperature
   noiseType: Perlin
   fractalLacunarityByPi: 0.666666666
   remapTo0Through1: true
-  inputMultiplier: 6 # Makes wreck concentration very low noise at scale.
+  inputMultiplier: 6
+
+# -----------------------------------------------------------------------------
+# Спеціалізовані канали щільності для гексагональної системи HexPupil:
+# -----------------------------------------------------------------------------
+
+# 1. Плато: дистанція між астероїдами ~14..22 метри.
+# Дрібний корабель пролітає легко, а великий шатл (шириною 15-20м) мусить маневрувати.
+- type: noiseChannel
+  id: HexDensityPlateau
+  noiseType: Perlin
+  fractalLacunarityByPi: 0.666666666
+  remapTo0Through1: true
+  inputMultiplier: 2
+  outputMultiplier: 8.0
+  minimum: 14.0
+
+# 2. Пояс: дистанція ~8..14 метрів.
+# Густий щільний бар'єр з великих астероїдів.
+- type: noiseChannel
+  id: HexDensityBelt
+  noiseType: Perlin
+  fractalLacunarityByPi: 0.666666666
+  remapTo0Through1: true
+  inputMultiplier: 2
+  outputMultiplier: 6.0
+  minimum: 8.0
+
+# 3. Око: дистанція ~9..16 метрів.
+# Неприємне місце з купою великих астероїдів та дрібними між ними.
+- type: noiseChannel
+  id: HexDensityEye
+  noiseType: Perlin
+  fractalLacunarityByPi: 0.666666666
+  remapTo0Through1: true
+  inputMultiplier: 2
+  outputMultiplier: 7.0
+  minimum: 9.0
+
+# 4. Буферні / розміжні зони: середня дистанція ~12..18 метрів.
+- type: noiseChannel
+  id: HexDensityBuffer
+  noiseType: Perlin
+  fractalLacunarityByPi: 0.666666666
+  remapTo0Through1: true
+  inputMultiplier: 2
+  outputMultiplier: 6.0
+  minimum: 12.0
