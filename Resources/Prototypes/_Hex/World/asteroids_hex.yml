@@ -1,0 +1,650 @@
+# =============================================================================
+# АСТЕРОЇДИ HEX-STATION
+# 1. Пустишки (Empty): 100% твердий камінь, 0% руди, 0% мобів. Барикади та маса.
+# 2. Багаті рудоносні Тип 1 (RichAll): ~80% різноманітної руди, ~15% каменю, ~5% мобів.
+# 3. Багаті рудоносні Тип 2 (RichSingle): ~75% моно-руди, ~18% каменю, ~5% вкраплень, ~2% мобів.
+# =============================================================================
+
+# region Base Templates
+- type: entity
+  id: HexBaseAsteroidRockEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorAsteroidSand
+    blobDrawProb: 0.5
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#d67e27"
+
+- type: entity
+  id: HexBaseAsteroidRockRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorAsteroidSand
+    blobDrawProb: 0.5
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#d67e27"
+
+- type: entity
+  id: HexBaseAsteroidRockRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorAsteroidSand
+    blobDrawProb: 0.5
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#d67e27"
+
+# Basalt
+- type: entity
+  id: HexBaseAsteroidBasaltEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorBasalt
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#b5b5b5"
+
+- type: entity
+  id: HexBaseAsteroidBasaltRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorBasalt
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#b5b5b5"
+
+- type: entity
+  id: HexBaseAsteroidBasaltRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorBasalt
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#b5b5b5"
+
+# Chromite
+- type: entity
+  id: HexBaseAsteroidChromiteEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorChromite
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#8178cc"
+
+- type: entity
+  id: HexBaseAsteroidChromiteRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorChromite
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#8178cc"
+
+- type: entity
+  id: HexBaseAsteroidChromiteRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorChromite
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#8178cc"
+
+# Andesite
+- type: entity
+  id: HexBaseAsteroidAndesiteEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorCaveDrought
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#95c280"
+
+- type: entity
+  id: HexBaseAsteroidAndesiteRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorCaveDrought
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#95c280"
+
+- type: entity
+  id: HexBaseAsteroidAndesiteRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorCaveDrought
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#95c280"
+
+# Sand
+- type: entity
+  id: HexBaseAsteroidSandEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorLowDesert
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#cad17b"
+
+- type: entity
+  id: HexBaseAsteroidSandRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorLowDesert
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#cad17b"
+
+- type: entity
+  id: HexBaseAsteroidSandRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - FloorLowDesert
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#cad17b"
+
+# Scrap
+- type: entity
+  id: HexBaseAsteroidScrapEmpty
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - Lattice
+  - type: HexAsteroidPopulator
+    asteroidType: Empty
+  - type: IFF
+    color: "#fcdec7"
+
+- type: entity
+  id: HexBaseAsteroidScrapRichAll
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - Lattice
+  - type: HexAsteroidPopulator
+    asteroidType: RichAll
+  - type: IFF
+    color: "#fcdec7"
+
+- type: entity
+  id: HexBaseAsteroidScrapRichSingle
+  parent: NFBaseDebris
+  abstract: true
+  components:
+  - type: BlobFloorPlanBuilder
+    floorTileset:
+    - Lattice
+  - type: HexAsteroidPopulator
+    asteroidType: RichSingle
+  - type: IFF
+    color: "#fcdec7"
+# endregion Base Templates
+
+# region Small
+- type: entity
+  id: HexAsteroidEmptySmall
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllSmall
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleSmall
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapEmptySmall
+  parent: [HexBaseAsteroidScrapEmpty, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichAllSmall
+  parent: [HexBaseAsteroidScrapRichAll, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichSingleSmall
+  parent: [HexBaseAsteroidScrapRichSingle, NFBaseAsteroidSmall]
+  categories: [ HideSpawnMenu ]
+# endregion Small
+
+# region Medium
+- type: entity
+  id: HexAsteroidEmptyMedium
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllMedium
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleMedium
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltEmptyMedium
+  parent: [HexBaseAsteroidBasaltEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichAllMedium
+  parent: [HexBaseAsteroidBasaltRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichSingleMedium
+  parent: [HexBaseAsteroidBasaltRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteEmptyMedium
+  parent: [HexBaseAsteroidChromiteEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichAllMedium
+  parent: [HexBaseAsteroidChromiteRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichSingleMedium
+  parent: [HexBaseAsteroidChromiteRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteEmptyMedium
+  parent: [HexBaseAsteroidAndesiteEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichAllMedium
+  parent: [HexBaseAsteroidAndesiteRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichSingleMedium
+  parent: [HexBaseAsteroidAndesiteRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandEmptyMedium
+  parent: [HexBaseAsteroidSandEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichAllMedium
+  parent: [HexBaseAsteroidSandRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichSingleMedium
+  parent: [HexBaseAsteroidSandRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapEmptyMedium
+  parent: [HexBaseAsteroidScrapEmpty, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichAllMedium
+  parent: [HexBaseAsteroidScrapRichAll, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichSingleMedium
+  parent: [HexBaseAsteroidScrapRichSingle, NFBaseAsteroidMedium]
+  categories: [ HideSpawnMenu ]
+# endregion Medium
+
+# region Large
+- type: entity
+  id: HexAsteroidEmptyLarge
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllLarge
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleLarge
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltEmptyLarge
+  parent: [HexBaseAsteroidBasaltEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichAllLarge
+  parent: [HexBaseAsteroidBasaltRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichSingleLarge
+  parent: [HexBaseAsteroidBasaltRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteEmptyLarge
+  parent: [HexBaseAsteroidChromiteEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichAllLarge
+  parent: [HexBaseAsteroidChromiteRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichSingleLarge
+  parent: [HexBaseAsteroidChromiteRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteEmptyLarge
+  parent: [HexBaseAsteroidAndesiteEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichAllLarge
+  parent: [HexBaseAsteroidAndesiteRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichSingleLarge
+  parent: [HexBaseAsteroidAndesiteRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandEmptyLarge
+  parent: [HexBaseAsteroidSandEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichAllLarge
+  parent: [HexBaseAsteroidSandRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichSingleLarge
+  parent: [HexBaseAsteroidSandRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapEmptyLarge
+  parent: [HexBaseAsteroidScrapEmpty, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichAllLarge
+  parent: [HexBaseAsteroidScrapRichAll, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichSingleLarge
+  parent: [HexBaseAsteroidScrapRichSingle, NFBaseAsteroidLarge]
+  categories: [ HideSpawnMenu ]
+# endregion Large
+
+# region ExtraLarge
+- type: entity
+  id: HexAsteroidEmptyExtraLarge
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllExtraLarge
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleExtraLarge
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltEmptyExtraLarge
+  parent: [HexBaseAsteroidBasaltEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichAllExtraLarge
+  parent: [HexBaseAsteroidBasaltRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichSingleExtraLarge
+  parent: [HexBaseAsteroidBasaltRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteEmptyExtraLarge
+  parent: [HexBaseAsteroidChromiteEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichAllExtraLarge
+  parent: [HexBaseAsteroidChromiteRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichSingleExtraLarge
+  parent: [HexBaseAsteroidChromiteRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteEmptyExtraLarge
+  parent: [HexBaseAsteroidAndesiteEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichAllExtraLarge
+  parent: [HexBaseAsteroidAndesiteRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidAndesiteRichSingleExtraLarge
+  parent: [HexBaseAsteroidAndesiteRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandEmptyExtraLarge
+  parent: [HexBaseAsteroidSandEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichAllExtraLarge
+  parent: [HexBaseAsteroidSandRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidSandRichSingleExtraLarge
+  parent: [HexBaseAsteroidSandRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapEmptyExtraLarge
+  parent: [HexBaseAsteroidScrapEmpty, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichAllExtraLarge
+  parent: [HexBaseAsteroidScrapRichAll, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidScrapRichSingleExtraLarge
+  parent: [HexBaseAsteroidScrapRichSingle, NFBaseAsteroidExtraLarge]
+  categories: [ HideSpawnMenu ]
+# endregion ExtraLarge
+
+# region Massive & Gigantic
+- type: entity
+  id: HexAsteroidEmptyMassive
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllMassive
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleMassive
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltEmptyMassive
+  parent: [HexBaseAsteroidBasaltEmpty, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichAllMassive
+  parent: [HexBaseAsteroidBasaltRichAll, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidBasaltRichSingleMassive
+  parent: [HexBaseAsteroidBasaltRichSingle, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteEmptyMassive
+  parent: [HexBaseAsteroidChromiteEmpty, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichAllMassive
+  parent: [HexBaseAsteroidChromiteRichAll, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichSingleMassive
+  parent: [HexBaseAsteroidChromiteRichSingle, NFBaseAsteroidGas, NFBaseAsteroidMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidEmptyExtraMassive
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidGas, NFBaseAsteroidExtraMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllExtraMassive
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidGas, NFBaseAsteroidExtraMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleExtraMassive
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidGas, NFBaseAsteroidExtraMassive]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidEmptyGigantic
+  parent: [HexBaseAsteroidRockEmpty, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichAllGigantic
+  parent: [HexBaseAsteroidRockRichAll, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidRichSingleGigantic
+  parent: [HexBaseAsteroidRockRichSingle, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteEmptyGigantic
+  parent: [HexBaseAsteroidChromiteEmpty, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichAllGigantic
+  parent: [HexBaseAsteroidChromiteRichAll, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+
+- type: entity
+  id: HexAsteroidChromiteRichSingleGigantic
+  parent: [HexBaseAsteroidChromiteRichSingle, NFBaseAsteroidGas, NFBaseAsteroidGigantic]
+  categories: [ HideSpawnMenu ]
+# endregion Massive & Gigantic

@@ -494,6 +494,7 @@ public sealed partial class ShuttleNavControl : BaseShuttleControl
         // End Frontier
 
         DrawFireControlOverlay(handle);
+        DrawOreOverlay(handle, worldToShuttle, shuttleToView); // Hex Ore Scanner
     }
 
     private void DrawDocks(DrawingHandleScreen handle, EntityUid uid, Matrix3x2 gridToView)

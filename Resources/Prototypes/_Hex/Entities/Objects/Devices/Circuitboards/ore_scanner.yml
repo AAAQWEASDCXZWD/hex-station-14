@@ -1,0 +1,24 @@
+- type: entity
+  id: HexShuttleOreScannerCircuitboard
+  parent: BaseMachineCircuitboard
+  name: shuttle ore scanner machine board
+  description: A machine board for a shuttle ore scanner.
+  components:
+  - type: Sprite
+    state: supply
+  - type: MachineBoard
+    prototype: HexShuttleOreScanner
+    requirements:
+      Capacitor: 2
+      Manipulator: 2
+    stackRequirements:
+      Glass: 5
+      Steel: 5
+
+- type: latheRecipe
+  id: HexShuttleOreScannerCircuitboard
+  result: HexShuttleOreScannerCircuitboard
+  completetime: 5
+  materials:
+    Steel: 100
+    Glass: 100
