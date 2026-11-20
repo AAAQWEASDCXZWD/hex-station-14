@@ -4,15 +4,20 @@ using Content.Client.Clickable;
 using Content.Client.Construction;
 using Content.Client.IconSmoothing;
 using Content.Client.Interactable.Components;
+using Content.Client.Power.Visualizers;
 using Content.Shared._Hex.Shipyard.Components;
+using Content.Shared._Hex.Shipyard.Events;
+using Content.Shared.Examine;
 using Content.Shared.Input;
 using Content.Shared.Interaction;
 using Content.Shared.Interaction.Events;
 using Content.Shared.Maps;
+using Content.Shared.Popups;
+using Content.Shared.Verbs;
+using Content.Shared.Wires;
 using Robust.Client.GameObjects;
 using Robust.Client.Graphics;
 using Robust.Client.Input;
-using Robust.Shared.Input;
 using Robust.Shared.Input.Binding;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
@@ -24,13 +29,9 @@ namespace Content.Client._Hex.Shipyard;
 
 /// <summary>
 /// Projects the grid stored in a <see cref="ShipBlueprintComponent"/> as a client-side hologram.
+/// Supports progressive layer filtering (Tiles -> Wires -> Objects), high-fidelity holographic
+/// rendering, and instant client-side switching via right-click (PKM) context menu.
 /// </summary>
-/// <remarks>
-/// The projection is built out of client-only ghost entities. The grid itself is represented by one
-/// hologram tile per source tile, while every prototype-backed object on the grid gets its own ghost
-/// sprite. The root can be parented to a grid or directly to a map, so the blueprint can be projected
-/// in open space as well.
-/// </remarks>
 public sealed class ShipBlueprintHologramSystem : EntitySystem
 {
     [Dependency] private readonly IEyeManager _eye = default!;
@@ -39,13 +40,22 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
     [Dependency] private readonly IPrototypeManager _prototype = default!;
     [Dependency] private readonly IComponentFactory _componentFactory = default!;
     [Dependency] private readonly ISerializationManager _serialization = default!;
-    [Dependency] private readonly ITileDefinitionManager _tileDefinitions = default!;
     [Dependency] private readonly SharedMapSystem _map = default!;
     [Dependency] private readonly SharedTransformSystem _transform = default!;
     [Dependency] private readonly SpriteSystem _sprite = default!;
+    [Dependency] private readonly SharedPopupSystem _popup = default!;
 
     private const string GhostPrototype = "constructionghost";
-    private const string HologramTileDefinition = "HologramFloor";
+
+    /// <summary>
+    /// Soft translucent sci-fi holographic tint applied to sprites to clearly indicate a hologram
+    /// projection while preserving all prototype textures, colors, and visual details.
+    /// </summary>
+    private static readonly Color HologramTint = new(0.92f, 0.96f, 1.0f, 0.82f);
+
+    private static readonly VerbCategory LayerCategory = new(
+        "ship-blueprint-verb-category-layers",
+        "/Textures/Interface/VerbIcons/settings.svg.192dpi.png");
 
     private EntityUid? _activeHologram;
 
@@ -55,6 +65,8 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
 
         SubscribeLocalEvent<ShipBlueprintComponent, UseInHandEvent>(OnUseInHand);
         SubscribeLocalEvent<ShipBlueprintComponent, AfterInteractEvent>(OnAfterInteract);
+        SubscribeLocalEvent<ShipBlueprintComponent, GetVerbsEvent<Verb>>(OnGetVerbs);
+        SubscribeLocalEvent<ShipBlueprintComponent, ExaminedEvent>(OnExamined);
         SubscribeLocalEvent<GridHologramComponent, ComponentShutdown>(OnHologramShutdown);
 
         CommandBinds.Builder
@@ -67,6 +79,118 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
     {
         base.Shutdown();
         CommandBinds.Unregister<ShipBlueprintHologramSystem>();
+    }
+
+    /// <summary>
+    /// Adds right-click (PKM) verbs allowing players to configure visible blueprint layers:
+    /// Tiles only, Tiles + Wires, or All Objects.
+    /// </summary>
+    private void OnGetVerbs(Entity<ShipBlueprintComponent> ent, ref GetVerbsEvent<Verb> args)
+    {
+        if (!args.CanAccess || !args.CanInteract)
+            return;
+
+        var comp = ent.Comp;
+        var user = args.User;
+
+        foreach (var mode in Enum.GetValues<BlueprintDisplayMode>())
+        {
+            var targetMode = mode;
+            var modeName = GetModeLocaleName(targetMode);
+            var isCurrent = comp.Mode == targetMode;
+            var label = isCurrent ? $"[✓] {modeName}" : modeName;
+
+            args.Verbs.Add(new Verb
+            {
+                Category = LayerCategory,
+                Text = label,
+                Disabled = isCurrent,
+                ClientExclusive = true,
+                Priority = (int) targetMode,
+                Act = () =>
+                {
+                    SetDisplayMode(ent, targetMode, user);
+                }
+            });
+        }
+    }
+
+    private void OnExamined(Entity<ShipBlueprintComponent> ent, ref ExaminedEvent args)
+    {
+        var comp = ent.Comp;
+        var modeName = GetModeLocaleName(comp.Mode);
+
+        var wireCount = comp.Data.Entities.Count(e => e.Layer == GridHologramLayer.SubFloor);
+        var objectCount = comp.Data.Entities.Count - wireCount;
+
+        args.PushMarkup(Loc.GetString("ship-blueprint-examine-info",
+            ("name", string.IsNullOrEmpty(comp.ShuttleName) ? "Unknown" : comp.ShuttleName),
+            ("mode", modeName),
+            ("tiles", comp.Data.Tiles.Count),
+            ("wires", wireCount),
+            ("objects", objectCount)));
+
+        args.PushMarkup(Loc.GetString("ship-blueprint-examine-tip"));
+    }
+
+    private string GetModeLocaleName(BlueprintDisplayMode mode)
+    {
+        return mode switch
+        {
+            BlueprintDisplayMode.Tiles => Loc.GetString("ship-blueprint-layer-tiles"),
+            BlueprintDisplayMode.Wires => Loc.GetString("ship-blueprint-layer-wires"),
+            BlueprintDisplayMode.Objects => Loc.GetString("ship-blueprint-layer-objects"),
+            _ => mode.ToString(),
+        };
+    }
+
+    /// <summary>
+    /// Sets the active blueprint display mode, syncing with the server and updating the active projection.
+    /// </summary>
+    public void SetDisplayMode(Entity<ShipBlueprintComponent> blueprint, BlueprintDisplayMode mode, EntityUid? user = null)
+    {
+        blueprint.Comp.Mode = mode;
+        RaiseNetworkEvent(new ShipBlueprintSetModeMessage(GetNetEntity(blueprint.Owner), mode));
+
+        if (_activeHologram is { } active
+            && !Deleted(active)
+            && TryComp<GridHologramComponent>(active, out var hologram))
+        {
+            ApplyDisplayMode(hologram, mode);
+        }
+
+        if (user != null)
+        {
+            var modeName = GetModeLocaleName(mode);
+            _popup.PopupEntity(Loc.GetString("ship-blueprint-mode-changed", ("mode", modeName)), blueprint.Owner, user.Value);
+        }
+    }
+
+    /// <summary>
+    /// Updates ghost entity visibility according to the selected progressive layer mode.
+    /// Hierarchy:
+    /// - Tiles: Floor tiles visible. Wires hidden. Objects hidden.
+    /// - Wires: Floor tiles visible. Wires visible. Objects hidden.
+    /// - Objects: Floor tiles visible. Wires visible. Objects visible (all layers shown).
+    /// </summary>
+    public void ApplyDisplayMode(GridHologramComponent hologram, BlueprintDisplayMode mode)
+    {
+        hologram.Mode = mode;
+
+        var showWires = hologram.Visible && mode is BlueprintDisplayMode.Wires or BlueprintDisplayMode.Objects;
+        var showObjects = hologram.Visible && mode is BlueprintDisplayMode.Objects;
+
+        foreach (var ghost in hologram.WireGhosts)
+        {
+            if (!Deleted(ghost) && TryComp<SpriteComponent>(ghost, out var sprite))
+                sprite.Visible = showWires;
+        }
+
+        foreach (var ghost in hologram.ObjectGhosts)
+        {
+            if (!Deleted(ghost) && TryComp<SpriteComponent>(ghost, out var sprite))
+                sprite.Visible = showObjects;
+        }
     }
 
     private void ToggleHologram()
@@ -84,19 +208,11 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
             && !Deleted(tileGridUid)
             && TryComp<MapGridComponent>(tileGridUid, out var tileGrid))
         {
-            var tile = hologram.Visible ? hologram.HologramTile : Tile.Empty;
-            var updates = new List<(Vector2i Indices, Tile Tile)>(hologram.TileIndices.Count);
-            foreach (var index in hologram.TileIndices)
-                updates.Add((index, tile));
-
+            var updates = hologram.Visible ? hologram.CachedTiles : hologram.EmptyTiles;
             _map.SetTiles(tileGridUid, tileGrid, updates);
         }
 
-        foreach (var ghost in hologram.Ghosts)
-        {
-            if (!Deleted(ghost) && TryComp<SpriteComponent>(ghost, out var sprite))
-                sprite.Visible = hologram.Visible;
-        }
+        ApplyDisplayMode(hologram, hologram.Mode);
     }
 
     private void OnUseInHand(Entity<ShipBlueprintComponent> ent, ref UseInHandEvent args)
@@ -119,20 +235,14 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         }
         else
         {
-            // Open space: the projection root can sit directly on the map.
             coordinates = _transform.ToCoordinates(mapCoordinates);
         }
 
         var direction = Transform(args.User).LocalRotation.GetCardinalDir();
-
         PlaceHologram(ent, coordinates, direction);
         args.Handled = true;
     }
 
-    /// <summary>
-    /// Clicking with the blueprint projects it at the clicked location, snapping to a tile when the
-    /// click lands on a grid.
-    /// </summary>
     private void OnAfterInteract(Entity<ShipBlueprintComponent> ent, ref AfterInteractEvent args)
     {
         if (args.Handled || !args.CanReach || !args.ClickLocation.IsValid(EntityManager))
@@ -151,13 +261,12 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         }
 
         var direction = Transform(args.User).LocalRotation.GetCardinalDir();
-
         PlaceHologram(ent, coordinates, direction);
         args.Handled = true;
     }
 
     /// <summary>
-    /// Replaces the current hologram with a projection of the blueprint at the given map location.
+    /// Projects the blueprint as a client-side holographic representation identical to its spawned state.
     /// </summary>
     public void PlaceHologram(Entity<ShipBlueprintComponent> blueprint, EntityCoordinates coordinates, Direction direction)
     {
@@ -168,15 +277,6 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         if (data.Tiles.Count == 0 && data.Entities.Count == 0)
         {
             Log.Warning("Ship blueprint has no tile or entity data.");
-            return;
-        }
-
-        Log.Info($"Projecting ship blueprint with {data.Tiles.Count} tiles and {data.Entities.Count} entities.");
-
-        if (!_tileDefinitions.TryGetDefinition(HologramTileDefinition, out var definition)
-            || definition is not ContentTileDefinition hologramTileDefinition)
-        {
-            Log.Error($"Missing {HologramTileDefinition} tile definition.");
             return;
         }
 
@@ -194,143 +294,190 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         if (_activeHologram is { } old && !Deleted(old))
             QueueDel(old);
 
-        // One client-side grid renders the entire tile layer in chunks. Spawning a separate sprite
-        // entity per tile is what was tanking the framerate on large shuttles.
+        // Create the client-side grid to render real ship tiles in fast hardware-accelerated chunks.
         var tileGrid = _mapManager.CreateGrid(mapId);
         var tileGridUid = tileGrid.Owner;
         _transform.SetWorldRotation(tileGridUid, worldRotation);
         _transform.SetWorldPosition(tileGridUid, worldPosition - worldRotation.RotateVec(data.Center));
 
-        var hologramTile = new Tile(hologramTileDefinition.TileId);
         var tiles = new List<(Vector2i Indices, Tile Tile)>(data.Tiles.Count);
-        var tileIndices = new List<Vector2i>(data.Tiles.Count);
+        var emptyTiles = new List<(Vector2i Indices, Tile Tile)>(data.Tiles.Count);
         foreach (var sourceTile in data.Tiles)
         {
-            tiles.Add((sourceTile.Indices, hologramTile));
-            tileIndices.Add(sourceTile.Indices);
+            tiles.Add((sourceTile.Indices, new Tile(sourceTile.TileId)));
+            emptyTiles.Add((sourceTile.Indices, Tile.Empty));
         }
 
         _map.SetTiles(tileGridUid, tileGrid, tiles);
 
-        // The root remains the client-side object/cleanup carrier for the entity ghosts.
-        var root = Spawn(GhostPrototype, coordinates);
-        _activeHologram = root;
-
-        var rootXform = Transform(root);
-        rootXform.LocalRotation = localRotation;
-
-        var hologram = EnsureComp<GridHologramComponent>(root);
-        hologram.Ghosts.Clear();
+        // Attach GridHologramComponent directly to the grid root for tracking and instant lifecycle management.
+        var hologram = EnsureComp<GridHologramComponent>(tileGridUid);
+        hologram.SourceBlueprint = blueprint.Owner;
         hologram.TileGrid = tileGridUid;
-        hologram.TileIndices.Clear();
-        hologram.TileIndices.AddRange(tileIndices);
-        hologram.HologramTile = hologramTile;
+        hologram.CachedTiles.Clear();
+        hologram.CachedTiles.AddRange(tiles);
+        hologram.EmptyTiles.Clear();
+        hologram.EmptyTiles.AddRange(emptyTiles);
+        hologram.WireGhosts.Clear();
+        hologram.ObjectGhosts.Clear();
+        hologram.AllGhosts.Clear();
+        hologram.Mode = blueprint.Comp.Mode;
+        hologram.Visible = true;
+        _activeHologram = tileGridUid;
 
-        RemoveInteractionComponents(root);
+        // Precompute cable positions so any cable entity without a recorded wire mask
+        // can instantly calculate cardinal connections to neighbor cables.
+        var cableTiles = new HashSet<Vector2i>();
+        foreach (var entity in data.Entities)
+        {
+            if (entity.Layer == GridHologramLayer.SubFloor
+                || (_prototype.TryIndex(entity.Prototype, out var p)
+                    && (p.Components.ContainsKey("Cable") || p.Components.ContainsKey("CableVisualizer"))))
+            {
+                cableTiles.Add(new Vector2i((int) MathF.Floor(entity.Position.X), (int) MathF.Floor(entity.Position.Y)));
+            }
+        }
 
         foreach (var source in data.Entities)
         {
             if (!_prototype.TryIndex(source.Prototype, out EntityPrototype? prototype))
                 continue;
 
-            var ghost = SpawnGhost(root, source.Position - data.Center, GhostPrototype);
-            if (ghost == null)
+            // Spawn the client-side ghost parented directly to tileGridUid at its exact grid coordinates.
+            var ghost = Spawn(GhostPrototype, new EntityCoordinates(tileGridUid, source.Position));
+            if (Deleted(ghost))
                 continue;
 
-            var ghostXform = Transform(ghost.Value);
-            var ghostGrid = _transform.GetGrid(ghost.Value);
+            RemoveInteractionComponents(ghost);
+
+            var ghostXform = Transform(ghost);
+            var sprite = EnsureComp<SpriteComponent>(ghost);
+            var hasPrototypeSprite = prototype.TryGetComponent(out SpriteComponent? prototypeSprite, _componentFactory);
             var hasSmooth = prototype.TryGetComponent(out IconSmoothComponent? smooth, _componentFactory);
 
-            var sprite = EnsureComp<SpriteComponent>(ghost.Value);
-            var hasPrototypeSprite = prototype.TryGetComponent(out SpriteComponent? prototypeSprite, _componentFactory);
+            var isWire = source.Layer == GridHologramLayer.SubFloor
+                || prototype.Components.ContainsKey("Cable")
+                || prototype.Components.ContainsKey("CableVisualizer")
+                || prototype.Components.ContainsKey("SubFloorHide")
+                || prototype.Components.ContainsKey("PipeAppearance")
+                || prototype.Components.ContainsKey("AtmosPipeLayers");
 
-            if (hasPrototypeSprite)
+            if (isWire)
             {
-                // Copy even a layerless sprite: it still carries the base RSI that IconSmooth needs.
-                sprite.CopyFrom(prototypeSprite!);
-                sprite.DrawDepth = prototypeSprite!.DrawDepth;
+                // Wire / Cable handling: restore directional connected states
+                if (prototype.TryGetComponent(out CableVisualizerComponent? cableVis, _componentFactory))
+                {
+                    var mask = source.WireMask;
+                    if (mask == 0)
+                    {
+                        var tilePos = new Vector2i((int) MathF.Floor(source.Position.X), (int) MathF.Floor(source.Position.Y));
+                        if (cableTiles.Contains(tilePos + new Vector2i(0, 1))) mask |= (byte) WireVisDirFlags.North;
+                        if (cableTiles.Contains(tilePos + new Vector2i(0, -1))) mask |= (byte) WireVisDirFlags.South;
+                        if (cableTiles.Contains(tilePos + new Vector2i(1, 0))) mask |= (byte) WireVisDirFlags.East;
+                        if (cableTiles.Contains(tilePos + new Vector2i(-1, 0))) mask |= (byte) WireVisDirFlags.West;
+                    }
+
+                    if (hasPrototypeSprite)
+                        sprite.CopyFrom(prototypeSprite!);
+
+                    if (!sprite.AllLayers.Any())
+                        _sprite.AddBlankLayer((ghost, sprite), 0);
+
+                    _sprite.LayerSetRsiState((ghost, sprite), 0, $"{cableVis.StatePrefix}{mask}");
+                    if (cableVis.ExtraLayerPrefix != null)
+                    {
+                        _sprite.AddBlankLayer((ghost, sprite), 1);
+                        _sprite.LayerSetRsiState((ghost, sprite), 1, $"{cableVis.ExtraLayerPrefix}{mask}");
+                    }
+
+                    _sprite.LayerSetVisible((ghost, sprite), 0, true);
+                    sprite.DrawDepth = (int) DrawDepth.FloorObjects;
+                }
+                else if (hasPrototypeSprite)
+                {
+                    sprite.CopyFrom(prototypeSprite!);
+                    sprite.DrawDepth = prototypeSprite!.DrawDepth;
+                }
+                else if (prototype.TryGetComponent(out IconComponent? icon, _componentFactory))
+                {
+                    _sprite.AddBlankLayer((ghost, sprite), 0);
+                    _sprite.LayerSetSprite((ghost, sprite), 0, icon.Icon);
+                    _sprite.LayerSetVisible((ghost, sprite), 0, true);
+                    sprite.DrawDepth = (int) DrawDepth.FloorObjects;
+                }
+
+                ghostXform.LocalRotation = new Angle(source.Rotation);
+                hologram.WireGhosts.Add(ghost);
             }
             else
             {
-                sprite.DrawDepth = GetDrawDepth(source.Layer);
-            }
-
-            var canSmooth = hasSmooth
-                && hasPrototypeSprite
-                && ghostGrid is { } smoothGrid
-                && TryComp<MapGridComponent>(smoothGrid, out _)
-                && smooth!.SmoothKey == "walls"
-                && !string.IsNullOrEmpty(smooth.StateBase)
-                && smooth.Mode is IconSmoothingMode.Corners or IconSmoothingMode.Diagonal;
-
-            if (!sprite.AllLayers.Any())
-            {
-                if (canSmooth && smooth!.Mode == IconSmoothingMode.Corners)
+                // Structural / Object handling
+                if (hasPrototypeSprite)
                 {
-                    // IconSmooth will create the corner layers using the copied base RSI.
+                    sprite.CopyFrom(prototypeSprite!);
+                    sprite.DrawDepth = prototypeSprite!.DrawDepth;
                 }
                 else
                 {
-                    if (!prototype.TryGetComponent(out IconComponent? icon, _componentFactory))
-                    {
-                        QueueDel(ghost.Value);
-                        continue;
-                    }
-
-                    // Many structural prototypes (walls, windows, etc.) only get their layers from
-                    // IconSmooth at runtime. The prototype icon is a reliable static stand-in when
-                    // the ghost cannot participate in smoothing (e.g. it is projected in open space).
-                    _sprite.AddBlankLayer((ghost.Value, sprite), 0);
-                    _sprite.LayerSetSprite((ghost.Value, sprite), 0, icon.Icon);
-                    _sprite.LayerSetVisible((ghost.Value, sprite), 0, true);
+                    sprite.DrawDepth = GetDrawDepth(source.Layer);
                 }
-            }
 
-            sprite.Color = Color.White;
-            sprite.Visible = true;
+                var canSmooth = hasSmooth
+                    && hasPrototypeSprite
+                    && smooth!.SmoothKey == "walls"
+                    && !string.IsNullOrEmpty(smooth.StateBase)
+                    && smooth.Mode is IconSmoothingMode.Corners or IconSmoothingMode.Diagonal;
 
-            if (hasSmooth && canSmooth)
-            {
-                // Anchor the ghost to the target grid and let the real IconSmooth system choose the
-                // connection states, so adjacent wall holograms line up like real walls.
-                var ghostWorldPosition = _transform.GetWorldPosition(ghostXform);
-                var ghostWorldRotation = _transform.GetWorldRotation(ghostXform);
-                _transform.AnchorEntity((ghost.Value, ghostXform));
-                _transform.SetWorldPosition(ghost.Value, ghostWorldPosition);
-                _transform.SetWorldRotation(ghost.Value, ghostWorldRotation);
-
-                var smoothCopy = _serialization.CreateCopy(smooth!, notNullableOverride: true);
-                AddComp(ghost.Value, smoothCopy);
-
-                // Safety net for a prototype whose smoothing data cannot produce layers.
                 if (!sprite.AllLayers.Any())
                 {
-                    if (!prototype.TryGetComponent(out IconComponent? icon, _componentFactory))
+                    if (!(canSmooth && smooth!.Mode == IconSmoothingMode.Corners))
                     {
-                        QueueDel(ghost.Value);
-                        continue;
+                        if (prototype.TryGetComponent(out IconComponent? icon, _componentFactory))
+                        {
+                            _sprite.AddBlankLayer((ghost, sprite), 0);
+                            _sprite.LayerSetSprite((ghost, sprite), 0, icon.Icon);
+                            _sprite.LayerSetVisible((ghost, sprite), 0, true);
+                        }
                     }
-
-                    _sprite.AddBlankLayer((ghost.Value, sprite), 0);
-                    _sprite.LayerSetSprite((ghost.Value, sprite), 0, icon.Icon);
-                    _sprite.LayerSetVisible((ghost.Value, sprite), 0, true);
                 }
-            }
-            else
-            {
-                ghostXform.LocalRotation = new Angle(source.Rotation);
+
+                if (hasSmooth && canSmooth)
+                {
+                    // Anchoring to tileGridUid connects walls seamlessly on this client-side grid!
+                    _transform.AnchorEntity((ghost, ghostXform));
+                    var smoothCopy = _serialization.CreateCopy(smooth!, notNullableOverride: true);
+                    AddComp(ghost, smoothCopy);
+                }
+                else
+                {
+                    ghostXform.LocalRotation = new Angle(source.Rotation);
+                }
+
+                hologram.ObjectGhosts.Add(ghost);
             }
 
-            SanitizeLayerDirections((ghost.Value, sprite));
-            ApplyHologram((ghost.Value, sprite));
-            hologram.Ghosts.Add(ghost.Value);
+            SanitizeLayerDirections((ghost, sprite));
+            ApplyHologramVisuals((ghost, sprite));
+            hologram.AllGhosts.Add(ghost);
         }
+
+        // Apply current display mode layers immediately
+        ApplyDisplayMode(hologram, blueprint.Comp.Mode);
     }
 
     /// <summary>
-    /// Guards against one-direction RSI states receiving a directional layer offset, which would
-    /// make <see cref="SpriteSystem"/> index past the state's frame array while rendering.
+    /// Applies the unshaded holographic visual style to a ghost sprite.
+    /// Uses engine-batched unshaded shader to avoid unique shader instance allocations.
     /// </summary>
+    private void ApplyHologramVisuals(Entity<SpriteComponent> ent)
+    {
+        ent.Comp.Color = HologramTint;
+        for (var i = 0; i < ent.Comp.AllLayers.Count(); i++)
+        {
+            ent.Comp.LayerSetShader(i, "unshaded");
+        }
+    }
+
     private void SanitizeLayerDirections(Entity<SpriteComponent> sprite)
     {
         foreach (var layer in sprite.Comp.AllLayers.OfType<SpriteComponent.Layer>())
@@ -347,14 +494,11 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         }
     }
 
-    /// <summary>
-    /// Maps the schema's explicit hologram layer order to an engine draw depth.
-    /// </summary>
     private static int GetDrawDepth(GridHologramLayer layer)
     {
         return layer switch
         {
-            GridHologramLayer.SubFloor => (int) DrawDepth.LowFloors,
+            GridHologramLayer.SubFloor => (int) DrawDepth.FloorObjects,
             GridHologramLayer.Floor => (int) DrawDepth.FloorTiles,
             GridHologramLayer.FloorObjects => (int) DrawDepth.FloorObjects,
             GridHologramLayer.Objects => (int) DrawDepth.Objects,
@@ -365,20 +509,8 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
         };
     }
 
-    private EntityUid? SpawnGhost(EntityUid root, Vector2 localPosition, string prototype)
-    {
-        var ghost = Spawn(prototype, new EntityCoordinates(root, localPosition));
-        if (Deleted(ghost))
-            return null;
-
-        RemoveInteractionComponents(ghost);
-        return ghost;
-    }
-
     private void RemoveInteractionComponents(EntityUid uid)
     {
-        // The construction ghost prototype is reused purely as a client-side sprite carrier. Strip the
-        // construction behaviour so holograms cannot be "built" or handled by the construction system.
         if (TryComp<ConstructionGhostComponent>(uid, out var constructionGhost))
             constructionGhost.GhostId = int.MinValue;
         EntityManager.RemoveComponentDeferred<ConstructionGhostComponent>(uid);
@@ -388,39 +520,25 @@ public sealed class ShipBlueprintHologramSystem : EntitySystem
 
     private void OnHologramShutdown(Entity<GridHologramComponent> ent, ref ComponentShutdown args)
     {
-        if (ent.Comp.TileGrid is { } tileGrid && !Deleted(tileGrid))
-            QueueDel(tileGrid);
-
-        foreach (var ghost in ent.Comp.Ghosts)
+        foreach (var ghost in ent.Comp.AllGhosts)
         {
             if (!Deleted(ghost))
                 QueueDel(ghost);
         }
 
-        ent.Comp.Ghosts.Clear();
-        ent.Comp.TileIndices.Clear();
-        ent.Comp.TileGrid = null;
+        ent.Comp.WireGhosts.Clear();
+        ent.Comp.ObjectGhosts.Clear();
+        ent.Comp.AllGhosts.Clear();
+        ent.Comp.CachedTiles.Clear();
+        ent.Comp.EmptyTiles.Clear();
+
+        if (ent.Comp.TileGrid is { } tileGrid && !Deleted(tileGrid))
+        {
+            ent.Comp.TileGrid = null;
+            QueueDel(tileGrid);
+        }
 
         if (_activeHologram == ent.Owner)
             _activeHologram = null;
-    }
-
-    private void ApplyHologram(Entity<SpriteComponent> ent)
-    {
-        var instance = _prototype.Index<ShaderPrototype>("Hologram").InstanceUnique();
-        var texHeight = ent.Comp.AllLayers.Select(l => (float) l.PixelSize.Y).DefaultIfEmpty(1f).Max();
-        if (texHeight <= 0f)
-            texHeight = 1f;
-
-        // The projection is built from the two blueprint inks: red for the outline and blue for the fill.
-        instance.SetParameter("color1", new Vector3(1f, 0.23f, 0.23f));
-        instance.SetParameter("color2", new Vector3(0.23f, 0.42f, 1f));
-        instance.SetParameter("alpha", 0.6f);
-        instance.SetParameter("intensity", 1.5f);
-        instance.SetParameter("texHeight", texHeight);
-        instance.SetParameter("t", 0f);
-
-        ent.Comp.PostShader = instance;
-        ent.Comp.RaiseShaderEvent = true;
     }
 }

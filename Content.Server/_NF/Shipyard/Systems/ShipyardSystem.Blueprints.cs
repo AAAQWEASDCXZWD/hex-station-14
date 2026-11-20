@@ -6,6 +6,7 @@ using Content.Shared._Hex.Shipyard.Events;
 using Content.Shared._NF.Shipyard.Components;
 using Content.Shared.Database;
 using Content.Shared.Maps;
+using Content.Shared.Wires;
 using Robust.Shared.Map;
 using Robust.Shared.Map.Components;
 using Robust.Shared.Prototypes;
@@ -15,6 +16,7 @@ namespace Content.Server._NF.Shipyard.Systems;
 public sealed partial class ShipyardSystem
 {
     [Dependency] private readonly ITileDefinitionManager _tileDefinitions = default!;
+    [Dependency] private readonly SharedAppearanceSystem _appearance = default!;
 
     /// <summary>
     /// Safety caps so a malformed or extremely large grid cannot create an unbounded networked blueprint.
@@ -45,6 +47,15 @@ public sealed partial class ShipyardSystem
         "AdminFrozen",
         "AdminMinigun",
     };
+
+    private void OnSetBlueprintModeMessage(ShipBlueprintSetModeMessage msg, EntitySessionEventArgs args)
+    {
+        if (!TryGetEntity(msg.BlueprintUid, out var uid) || !TryComp<ShipBlueprintComponent>(uid, out var blueprint))
+            return;
+
+        blueprint.Mode = msg.Mode;
+        Dirty(uid.Value, blueprint);
+    }
 
     private void OnPrintBlueprintMessage(EntityUid uid, ShipyardConsoleComponent component, ShipyardConsolePrintBlueprintMessage args)
     {
@@ -121,6 +132,7 @@ public sealed partial class ShipyardSystem
         var blueprintComponent = EnsureComp<ShipBlueprintComponent>(blueprint);
         blueprintComponent.Data = data;
         blueprintComponent.ShuttleName = Name(shuttleUid.Value);
+        blueprintComponent.Mode = BlueprintDisplayMode.Objects;
         Dirty(blueprint, blueprintComponent);
 
         _metaData.SetEntityName(blueprint, Loc.GetString("shipyard-shuttle-blueprint-name", ("name", blueprintComponent.ShuttleName)));
@@ -226,7 +238,8 @@ public sealed partial class ShipyardSystem
         if (HasComp<MapGridComponent>(entity))
             return true;
 
-        if (!TryComp<MetaDataComponent>(entity, out var meta) || meta.EntityPrototype == null)
+        var meta = MetaData(entity);
+        if (meta.EntityPrototype == null)
             return true;
 
         if (!IsVisibleBlueprintPrototype(meta.EntityPrototype))
@@ -239,11 +252,30 @@ public sealed partial class ShipyardSystem
         var local = _transform.WithEntityId(xform.Coordinates, gridUid);
         var rotation = (float) (_transform.GetWorldRotation(xform) - _transform.GetWorldRotation(gridXform)).Theta;
 
-        // The client uses the prototype's actual sprite draw depth when it has layers. This
-        // fallback keeps walls above floor-level objects for icon-only prototypes.
-        var layer = meta.EntityPrototype.Components.TryGetValue("IconSmooth", out _)
-            ? GridHologramLayer.Walls
-            : GridHologramLayer.Objects;
+        byte wireMask = 0;
+        var isWire = false;
+
+        if (meta.EntityPrototype.Components.ContainsKey("Cable")
+            || meta.EntityPrototype.Components.ContainsKey("CableVisualizer")
+            || meta.EntityPrototype.Components.ContainsKey("SubFloorHide")
+            || meta.EntityPrototype.Components.ContainsKey("PipeAppearance")
+            || meta.EntityPrototype.Components.ContainsKey("AtmosPipeLayers"))
+        {
+            isWire = true;
+        }
+
+        if (TryComp<AppearanceComponent>(entity, out var appearance)
+            && _appearance.TryGetData<WireVisDirFlags>(entity, WireVisVisuals.ConnectedMask, out var mask, appearance))
+        {
+            wireMask = (byte) mask;
+            isWire = true;
+        }
+
+        var layer = isWire
+            ? GridHologramLayer.SubFloor
+            : (meta.EntityPrototype.Components.ContainsKey("IconSmooth")
+                ? GridHologramLayer.Walls
+                : GridHologramLayer.Objects);
 
         data.Entities.Add(new GridBlueprintEntity
         {
@@ -251,6 +283,7 @@ public sealed partial class ShipyardSystem
             Position = local.Position,
             Rotation = rotation,
             Layer = layer,
+            WireMask = wireMask,
         });
 
         return true;

@@ -1,0 +1,59 @@
+- type: entity
+  id: FactorySmelterDebug
+  parent: BaseMachinePowered
+  name: industrial factory smelter (debug)
+  description: A high-efficiency factory machine supporting automated inputs from manipulators, conveyor ports, and pipe gas lines all at once.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Sprite
+    sprite: Structures/Machines/ore_processor.rsi
+    snapCardinals: true
+    layers:
+    - state: icon
+      map: ["enum.LatheVisualLayers.IsRunning"]
+    - state: unlit
+      shader: unshaded
+      map: ["enum.PowerDeviceVisualLayers.Powered"]
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Transform
+    anchored: true
+  - type: ApcPowerReceiver
+    powerLoad: 250
+  - type: MaterialStorage
+    ignoreColor: true
+    whitelist:
+      tags:
+      - Ore
+  - type: FactoryConveyorPort
+    ports:
+    - offset: 0, -1
+      portType: Input
+      transferInterval: 0.25
+    - offset: 0, 1
+      portType: Output
+      transferInterval: 0.25
+  - type: AtmosDevice
+  - type: NodeContainer
+    nodes:
+      inlet:
+        !type:PipeNode
+        nodeGroupID: Pipe
+        pipeDirection: South
+        volume: 100
+  - type: FactoryGasPort
+    ports:
+    - node: inlet
+      offset: 0, 0
+      portType: Input
+      gas: Oxygen
+      targetPressure: 500
+      maxTransferRate: 10
+  - type: FactoryMachine
+    allowManipulatorInput: true
+    allowManipulatorExtraction: true
+    processingDuration: 2.0
+    requiredGas: Oxygen
+    requiredGasMoles: 2.0
+    producedPrototype: SheetSteel1

@@ -3,12 +3,14 @@ using Content.Server.Materials;
 using Content.Shared.Conveyor;
 using Content.Shared.DeviceLinking.Events;
 using Content.Shared.Destructible;
+using Content.Shared.Gravity;
 using Content.Shared.Maps;
 using Content.Shared.Physics;
 using Content.Shared.Physics.Controllers;
 using Content.Shared.Power;
 using Robust.Shared.Physics;
 using Robust.Shared.Physics.Collision.Shapes;
+using Robust.Shared.Physics.Components;
 using Robust.Shared.Physics.Systems;
 
 namespace Content.Server.Physics.Controllers;
@@ -20,6 +22,9 @@ public sealed class ConveyorController : SharedConveyorController
     [Dependency] private readonly MaterialReclaimerSystem _materialReclaimer = default!;
     [Dependency] private readonly SharedAppearanceSystem _appearance = default!;
     [Dependency] private readonly TurfSystem _turf = default!;
+    [Dependency] private readonly SharedGravitySystem _gravity = default!;
+
+    private float _sleepSweepTimer;
 
     public override void Initialize()
     {
@@ -30,6 +35,7 @@ public sealed class ConveyorController : SharedConveyorController
 
         SubscribeLocalEvent<ConveyorComponent, SignalReceivedEvent>(OnSignalReceived);
         SubscribeLocalEvent<ConveyorComponent, PowerChangedEvent>(OnPowerChanged);
+        SubscribeLocalEvent<GravityChangedEvent>(OnGravityChanged);
 
         base.Initialize();
     }
@@ -71,6 +77,52 @@ public sealed class ConveyorController : SharedConveyorController
         component.Powered = args.Powered;
         UpdateAppearance(uid, component);
         Dirty(uid, component);
+
+        if (component.Powered && component.State != ConveyorState.Off)
+        {
+            WakeConveyed(uid);
+        }
+    }
+
+    private void OnGravityChanged(ref GravityChangedEvent args)
+    {
+        if (!args.HasGravity)
+            return;
+
+        var query = EntityQueryEnumerator<ConveyorComponent, TransformComponent>();
+        while (query.MoveNext(out var uid, out var conveyor, out var xform))
+        {
+            if (xform.GridUid != args.ChangedGridIndex)
+                continue;
+
+            if (conveyor.Powered && conveyor.State != ConveyorState.Off)
+            {
+                WakeConveyed(uid);
+            }
+        }
+    }
+
+    public override void Update(float frameTime)
+    {
+        base.Update(frameTime);
+
+        _sleepSweepTimer += frameTime;
+        if (_sleepSweepTimer < 1.5f)
+            return;
+
+        _sleepSweepTimer = 0f;
+
+        var conveyedQuery = EntityQueryEnumerator<ConveyedComponent, PhysicsComponent, TransformComponent>();
+        while (conveyedQuery.MoveNext(out var ent, out _, out var phys, out var xform))
+        {
+            if (phys.Awake || phys.BodyType == BodyType.Static)
+                continue;
+
+            if (xform.GridUid != null && !_gravity.IsWeightless(ent))
+            {
+                PhysicsSystem.WakeBody(ent, body: phys);
+            }
+        }
     }
 
     private void UpdateAppearance(EntityUid uid, ConveyorComponent component)

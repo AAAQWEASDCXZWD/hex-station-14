@@ -23,6 +23,32 @@ public sealed partial class ShipBlueprintComponent : Component
     /// </summary>
     [DataField, AutoNetworkedField]
     public string ShuttleName = string.Empty;
+
+    /// <summary>
+    /// Current layer visibility mode when projecting the blueprint.
+    /// </summary>
+    [DataField, AutoNetworkedField]
+    public BlueprintDisplayMode Mode = BlueprintDisplayMode.Objects;
+}
+
+/// <summary>
+/// Display mode for the holographic grid projection layers.
+/// Progressive hierarchy:
+/// Tiles: Only floor tiles are shown.
+/// Wires: Floor tiles and subfloor wiring/cables are shown (objects hidden).
+/// Objects: Floor tiles, wiring, and all objects/walls/structures are shown.
+/// </summary>
+[Serializable, NetSerializable]
+public enum BlueprintDisplayMode : byte
+{
+    /// <summary>Only floor tiles are visible.</summary>
+    Tiles = 0,
+
+    /// <summary>Floor tiles and cables/wires are visible. Objects/structures are hidden.</summary>
+    Wires = 1,
+
+    /// <summary>All layers (tiles, cables/wires, and objects/structures) are visible.</summary>
+    Objects = 2,
 }
 
 /// <summary>
@@ -90,10 +116,16 @@ public sealed partial class GridBlueprintEntity
     public float Rotation;
 
     /// <summary>
-    /// Fallback layer used when the prototype must be drawn from its icon.
+    /// Layer used to filter and sort holographic drawing.
     /// </summary>
     [DataField]
     public GridHologramLayer Layer = GridHologramLayer.Objects;
+
+    /// <summary>
+    /// Directional connection bitmask for cables (WireVisDirFlags).
+    /// </summary>
+    [DataField]
+    public byte WireMask = 0;
 }
 
 /// <summary>

@@ -4,6 +4,7 @@ using Content.Shared.Research.Prototypes;
 using Robust.Shared.Audio;
 using Robust.Shared.GameStates;
 using Robust.Shared.Prototypes;
+using Robust.Shared.Serialization;
 
 namespace Content.Shared.Lathe
 {
@@ -69,6 +70,12 @@ namespace Content.Shared.Lathe
         /// </summary>
         [ViewVariables]
         public ProtoId<LatheRecipePrototype>? CurrentRecipe;
+
+        /// <summary>
+        /// Re-entrancy guard for OnMaterialAmountChanged → TryStartProducing loop.
+        /// </summary>
+        [ViewVariables]
+        public bool MaterialChangeGuard;
 
         #region MachineUpgrading
         /// <summary>
@@ -147,18 +154,24 @@ namespace Content.Shared.Lathe
         }
     }
 
-    [Serializable]
+    [Serializable, NetSerializable]
     public sealed partial class LatheRecipeBatch
     {
         public ProtoId<LatheRecipePrototype> Recipe;
         public int ItemsPrinted;
         public int ItemsRequested;
 
-        public LatheRecipeBatch(ProtoId<LatheRecipePrototype> recipe, int itemsPrinted, int itemsRequested)
+        /// <summary>
+        /// Remaining loops: 0 = normal (no loop), -1 = infinite loop, > 0 = repeat N times.
+        /// </summary>
+        public int RepeatCycles;
+
+        public LatheRecipeBatch(ProtoId<LatheRecipePrototype> recipe, int itemsPrinted, int itemsRequested, int repeatCycles = 0)
         {
             Recipe = recipe;
             ItemsPrinted = itemsPrinted;
             ItemsRequested = itemsRequested;
+            RepeatCycles = repeatCycles;
         }
     }
 

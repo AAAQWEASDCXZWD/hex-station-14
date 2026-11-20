@@ -39,10 +39,13 @@ public sealed class LatheQueueRecipeMessage : BoundUserInterfaceMessage
 {
     public readonly string ID;
     public readonly int Quantity;
-    public LatheQueueRecipeMessage(string id, int quantity)
+    public readonly int RepeatCycles;
+
+    public LatheQueueRecipeMessage(string id, int quantity, int repeatCycles = 0)
     {
         ID = id;
         Quantity = quantity;
+        RepeatCycles = repeatCycles;
     }
 }
 

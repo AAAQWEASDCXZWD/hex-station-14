@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "size": {
+    "x": 32,
+    "y": 32
+  },
+  "states": [
+    {
+      "name": "junction_4way"
+    },
+    {
+      "name": "junction_t"
+    },
+    {
+      "name": "arrow_north"
+    },
+    {
+      "name": "arrow_east"
+    },
+    {
+      "name": "arrow_south"
+    },
+    {
+      "name": "arrow_west"
+    }
+  ]
+}

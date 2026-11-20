@@ -142,6 +142,7 @@ public sealed partial class ShipyardSystem : SharedShipyardSystem
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardShuttlePhotoMessage>(OnShuttlePhotoMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsoleRecallMessage>(OnRecallMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, ShipyardConsolePrintBlueprintMessage>(OnPrintBlueprintMessage);
+        SubscribeNetworkEvent<ShipBlueprintSetModeMessage>(OnSetBlueprintModeMessage);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntInsertedIntoContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<ShipyardConsoleComponent, EntRemovedFromContainerMessage>(OnItemSlotChanged);
         SubscribeLocalEvent<RoundRestartCleanupEvent>(OnRoundRestart);

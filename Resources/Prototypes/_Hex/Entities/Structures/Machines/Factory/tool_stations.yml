@@ -1,0 +1,135 @@
+- type: entity
+  id: FactoryToolStationBase
+  abstract: true
+  parent: BaseMachinePowered
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Transform
+    noRot: false
+    anchored: true
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      fix1:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.4,-0.4,0.4,0.4"
+        density: 190
+        mask:
+        - MachineMask
+        layer:
+        - MachineLayer
+  - type: ApcPowerReceiver
+    powerLoad: 150
+  - type: ExtensionCableReceiver
+  - type: Sprite
+    sprite: _NF/Structures/Machines/assembler.rsi
+    snapCardinals: true
+    layers:
+    - state: assembler
+      map: ["enum.FactoryToolStationVisualLayers.Base"]
+    - state: assembler-on-unlit
+      shader: unshaded
+      map: ["enum.FactoryToolStationVisualLayers.Screen"]
+    - state: assembler-running-unlit
+      shader: unshaded
+      visible: false
+      map: ["enum.FactoryToolStationVisualLayers.Working"]
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.FactoryToolStationVisuals.Powered:
+        enum.FactoryToolStationVisualLayers.Screen:
+          True: { visible: true }
+          False: { visible: false }
+      enum.FactoryToolStationVisuals.Working:
+        enum.FactoryToolStationVisualLayers.Working:
+          True: { visible: true }
+          False: { visible: false }
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 200
+      behaviors:
+      - !type:DoActsBehavior
+        acts: ["Destruction"]
+
+- type: entity
+  id: FactoryToolStationWelder
+  parent: FactoryToolStationBase
+  name: factory welder station
+  description: An automated stationary manipulator station that performs precision welding operations on items passing in front of it.
+  components:
+  - type: ApcPowerReceiver
+    powerLoad: 250
+  - type: FactoryToolStation
+    toolQuality: Welding
+    internalTool: Welder
+    workSound:
+      path: /Audio/Items/welder.ogg
+    operationTime: 1.5
+
+- type: entity
+  id: FactoryToolStationScrewdriver
+  parent: FactoryToolStationBase
+  name: factory screwdriver station
+  description: An automated stationary manipulator station that screws and unscrews components on items positioned in front of it.
+  components:
+  - type: ApcPowerReceiver
+    powerLoad: 120
+  - type: FactoryToolStation
+    toolQuality: Screwing
+    internalTool: Screwdriver
+    workSound:
+      path: /Audio/Items/screwdriver.ogg
+    operationTime: 1.0
+
+- type: entity
+  id: FactoryToolStationWirecutter
+  parent: FactoryToolStationBase
+  name: factory wirecutter station
+  description: An automated stationary manipulator station that cuts and trims wiring on items positioned in front of it.
+  components:
+  - type: ApcPowerReceiver
+    powerLoad: 120
+  - type: FactoryToolStation
+    toolQuality: Cutting
+    internalTool: Wirecutter
+    workSound:
+      path: /Audio/Items/wirecutter.ogg
+    operationTime: 1.0
+
+- type: entity
+  id: FactoryToolStationCrowbar
+  parent: FactoryToolStationBase
+  name: factory crowbar station
+  description: An automated stationary manipulator station that pries open panels and cases on items positioned in front of it.
+  components:
+  - type: ApcPowerReceiver
+    powerLoad: 140
+  - type: FactoryToolStation
+    toolQuality: Prying
+    internalTool: Crowbar
+    workSound:
+      path: /Audio/Items/crowbar.ogg
+    operationTime: 1.2
+
+- type: entity
+  id: FactoryToolStationWrench
+  parent: FactoryToolStationBase
+  name: factory wrench station
+  description: An automated stationary manipulator station that fastens and bolts mechanical structures on items positioned in front of it.
+  components:
+  - type: ApcPowerReceiver
+    powerLoad: 140
+  - type: FactoryToolStation
+    toolQuality: Anchoring
+    internalTool: Wrench
+    workSound:
+      path: /Audio/Items/ratchet.ogg
+    operationTime: 1.2

@@ -1,0 +1,57 @@
+- type: entity
+  id: FactoryManipulatorDebug
+  parent: BaseMachinePowered
+  name: factory manipulator (debug)
+  description: An automated robotic inserter that picks up items from behind and places them in front.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Sprite
+    sprite: _Hex/Structures/Machines/Factory/manipulator.rsi
+    snapCardinals: true
+    layers:
+    - state: base
+      map: ["enum.ManipulatorVisualLayers.Base"]
+    - state: arm
+      map: ["enum.ManipulatorVisualLayers.Arm"]
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.ManipulatorVisuals.Holding:
+        enum.ManipulatorVisualLayers.Arm:
+          True: { state: arm_holding }
+          False: { state: arm }
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Transform
+    noRot: false
+    anchored: true
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      fix1:
+        shape:
+          !type:PhysShapeAabb
+          bounds: "-0.4,-0.4,0.4,0.4"
+        density: 190
+        mask:
+        - MachineMask
+        layer:
+        - MachineLayer
+  - type: ApcPowerReceiver
+    powerLoad: 100
+  - type: ExtensionCableReceiver
+  - type: FactoryManipulator
+    sourceOffset: 0, -1
+    targetOffset: 0, 1
+    swingDuration: 0.6
+    sleepInterval: 0.5
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 100
+      behaviors:
+      - !type:DoActsBehavior
+        acts: ["Destruction"]

@@ -26,7 +26,7 @@ public sealed partial class LatheMenu : DefaultWindow
     private readonly MaterialStorageSystem _materialStorage;
 
     public event Action<BaseButton.ButtonEventArgs>? OnServerListButtonPressed;
-    public event Action<string, int>? RecipeQueueAction;
+    public event Action<string, int, int>? RecipeQueueAction;
     public event Action<int>? QueueDeleteAction;
     public event Action<int>? QueueMoveUpAction;
     public event Action<int>? QueueMoveDownAction;
@@ -141,7 +141,9 @@ public sealed partial class LatheMenu : DefaultWindow
             {
                 if (!int.TryParse(AmountLineEdit.Text, out var amount) || amount <= 0)
                     amount = 1;
-                RecipeQueueAction?.Invoke(s, amount);
+
+                var repeat = RepeatLoopCheckBox.Pressed ? -1 : 0;
+                RecipeQueueAction?.Invoke(s, amount, repeat);
             };
             RecipeList.AddChild(control);
         }
@@ -247,11 +249,21 @@ public sealed partial class LatheMenu : DefaultWindow
             var recipe = _prototypeManager.Index(batch.Recipe);
 
             var itemName = _lathe.GetRecipeName(batch.Recipe);
+
+            // Show repeat mode indicator
+            string repeatSuffix;
+            if (batch.RepeatCycles == -1)
+                repeatSuffix = " [∞]";
+            else if (batch.RepeatCycles > 0)
+                repeatSuffix = $" [×{batch.RepeatCycles}]";
+            else
+                repeatSuffix = "";
+
             string displayText;
             if (batch.ItemsRequested > 1)
-                displayText = Loc.GetString("lathe-menu-item-batch", ("index", idx), ("name", itemName), ("printed", batch.ItemsPrinted), ("total", batch.ItemsRequested));
+                displayText = Loc.GetString("lathe-menu-item-batch", ("index", idx), ("name", itemName + repeatSuffix), ("printed", batch.ItemsPrinted), ("total", batch.ItemsRequested));
             else
-                displayText = Loc.GetString("lathe-menu-item-single", ("index", idx), ("name", itemName));
+                displayText = Loc.GetString("lathe-menu-item-single", ("index", idx), ("name", itemName + repeatSuffix));
 
             var queuedRecipeBox = new QueuedRecipeControl(displayText, idx - 1, GetRecipeDisplayControl(recipe));
             queuedRecipeBox.OnDeletePressed += s => QueueDeleteAction?.Invoke(s);

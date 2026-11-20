@@ -185,7 +185,7 @@ namespace Content.Server.Lathe
             return ev.Recipes.ToList();
         }
 
-        public bool TryAddToQueue(EntityUid uid, LatheRecipePrototype recipe, int quantity, LatheComponent? component = null)
+        public bool TryAddToQueue(EntityUid uid, LatheRecipePrototype recipe, int quantity, LatheComponent? component = null, int repeatCycles = 0)
         {
             if (!Resolve(uid, ref component))
                 return false;
@@ -194,23 +194,13 @@ namespace Content.Server.Lathe
                 return false;
             quantity = int.Min(quantity, MaxItemsPerRequest);
 
-            if (!CanProduce(uid, recipe, quantity, component))
+            if (!HasRecipe(uid, recipe, component))
                 return false;
 
-            foreach (var (mat, amount) in recipe.Materials)
-            {
-                var adjustedAmount = recipe.ApplyMaterialDiscount
-                    ? (int)(-amount * component.FinalMaterialUseMultiplier) // Frontier: MaterialUseMultiplier<FinalMaterialUseMultiplier
-                    : -amount;
-                adjustedAmount *= quantity;
-
-                _materialStorage.TryChangeMaterialAmount(uid, mat, adjustedAmount);
-            }
-
-            if (component.Queue.Last is { } node && node.ValueRef.Recipe == recipe.ID)
+            if (repeatCycles == 0 && component.Queue.Last is { } node && node.ValueRef.Recipe == recipe.ID && node.ValueRef.RepeatCycles == 0)
                 node.ValueRef.ItemsRequested += quantity;
             else
-                component.Queue.AddLast(new LatheRecipeBatch(recipe.ID, 0, quantity));
+                component.Queue.AddLast(new LatheRecipeBatch(recipe.ID, 0, quantity, repeatCycles));
 
             return true;
         }
@@ -223,10 +213,21 @@ namespace Content.Server.Lathe
                 return false;
 
             var batch = component.Queue.First();
-            batch.ItemsPrinted++;
-            if (batch.ItemsPrinted >= batch.ItemsRequested || batch.ItemsPrinted < 0) // Rollover sanity check
-                component.Queue.RemoveFirst();
             var recipe = _proto.Index(batch.Recipe);
+
+            if (!CanProduce(uid, recipe, 1, component))
+                return false;
+
+            // Deduct materials for exactly 1 item at production start.
+            // Batch counter is advanced in FinishProducing after the item is actually spawned.
+            foreach (var (mat, amount) in recipe.Materials)
+            {
+                var adjustedAmount = recipe.ApplyMaterialDiscount
+                    ? (int)(-amount * component.FinalMaterialUseMultiplier)
+                    : -amount;
+
+                _materialStorage.TryChangeMaterialAmount(uid, mat, adjustedAmount);
+            }
 
             var time = _reagentSpeed.ApplySpeed(uid, recipe.CompleteTime) * component.FinalTimeMultiplier; // Frontier: TimeMultiplier<FinalTimeMultiplier
 
@@ -290,6 +291,30 @@ namespace Content.Server.Lathe
                     {
                         _popup.PopupEntity(Loc.GetString("lathe-reagent-dispense-no-container", ("name", uid)), uid);
                         _puddle.TrySpillAt(uid, toAdd, out _);
+                    }
+                }
+
+                // Advance the batch counter now that the item is actually produced.
+                // This was intentionally moved from TryStartProducing so that interrupted
+                // production (power loss, destruction) does not lose items.
+                if (comp.Queue.First is { } batchNode)
+                {
+                    var batch = batchNode.Value;
+                    batch.ItemsPrinted++;
+
+                    if (batch.ItemsPrinted >= batch.ItemsRequested || batch.ItemsPrinted < 0)
+                    {
+                        comp.Queue.RemoveFirst();
+
+                        // Re-queue for repeat / infinite loop
+                        if (batch.RepeatCycles != 0)
+                        {
+                            if (batch.RepeatCycles > 0)
+                                batch.RepeatCycles--;
+
+                            batch.ItemsPrinted = 0;
+                            comp.Queue.AddLast(batch);
+                        }
                     }
                 }
             }
@@ -361,6 +386,18 @@ namespace Content.Server.Lathe
 
         private void OnMaterialAmountChanged(EntityUid uid, LatheComponent component, ref MaterialAmountChangedEvent args)
         {
+            // Only attempt to start production if the lathe is idle with a pending queue.
+            // This handles the case where materials arrive while a recipe is waiting.
+            // Guard against re-entrant calls: TryStartProducing deducts materials which
+            // fires this event again — CurrentRecipe is not set yet at that point,
+            // so we also check a re-entrancy flag.
+            if (component.CurrentRecipe == null && component.Queue.Count > 0 && !component.MaterialChangeGuard)
+            {
+                component.MaterialChangeGuard = true;
+                TryStartProducing(uid, component);
+                component.MaterialChangeGuard = false;
+            }
+
             UpdateUserInterfaceState(uid, component);
         }
 
@@ -494,7 +531,7 @@ namespace Content.Server.Lathe
         {
             if (_proto.TryIndex(args.ID, out LatheRecipePrototype? recipe))
             {
-                if (TryAddToQueue(uid, recipe, args.Quantity, component))
+                if (TryAddToQueue(uid, recipe, args.Quantity, component, args.RepeatCycles))
                 {
                     _adminLogger.Add(LogType.Action,
                         LogImpact.Low,

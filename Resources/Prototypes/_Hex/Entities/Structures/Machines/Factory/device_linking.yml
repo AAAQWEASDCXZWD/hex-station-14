@@ -1,0 +1,24 @@
+- type: sinkPort
+  id: FactoryConveyorNextDirection
+  name: signal-port-name-factory-conveyor-next-direction
+  description: signal-port-description-factory-conveyor-next-direction
+
+- type: sinkPort
+  id: FactoryConveyorDirectionForward
+  name: signal-port-name-factory-conveyor-direction-forward
+  description: signal-port-description-factory-conveyor-direction-forward
+
+- type: sinkPort
+  id: FactoryConveyorDirectionRight
+  name: signal-port-name-factory-conveyor-direction-right
+  description: signal-port-description-factory-conveyor-direction-right
+
+- type: sinkPort
+  id: FactoryConveyorDirectionBackward
+  name: signal-port-name-factory-conveyor-direction-backward
+  description: signal-port-description-factory-conveyor-direction-backward
+
+- type: sinkPort
+  id: FactoryConveyorDirectionLeft
+  name: signal-port-name-factory-conveyor-direction-left
+  description: signal-port-description-factory-conveyor-direction-left

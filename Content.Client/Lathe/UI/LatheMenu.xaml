@@ -60,6 +60,11 @@
                         PlaceHolder="0"
                         Text="1"
                         HorizontalExpand="True" />
+                    <CheckBox
+                        Name="RepeatLoopCheckBox"
+                        Text="∞ Loop"
+                        Margin="8 0 8 0"
+                        ToolTip="Repeat this recipe endlessly. Items will be queued even without enough materials." />
                     <Label Name="RecipeCount" Margin="8 0 8 0" MinWidth="90" Align="Right" />
                 </BoxContainer>
             </BoxContainer>

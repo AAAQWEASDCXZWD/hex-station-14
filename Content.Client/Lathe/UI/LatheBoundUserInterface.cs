@@ -27,9 +27,9 @@ namespace Content.Client.Lathe.UI
                 SendMessage(new ConsoleServerSelectionMessage());
             };
 
-            _menu.RecipeQueueAction += (recipe, amount) =>
+            _menu.RecipeQueueAction += (recipe, amount, repeat) =>
             {
-                SendMessage(new LatheQueueRecipeMessage(recipe, amount));
+                SendMessage(new LatheQueueRecipeMessage(recipe, amount, repeat));
             };
             _menu.QueueDeleteAction += index => SendMessage(new LatheDeleteRequestMessage(index));
             _menu.QueueMoveUpAction += index => SendMessage(new LatheMoveRequestMessage(index, -1));

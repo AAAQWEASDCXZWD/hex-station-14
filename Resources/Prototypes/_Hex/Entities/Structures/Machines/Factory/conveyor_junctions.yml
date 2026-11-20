@@ -1,0 +1,247 @@
+- type: entity
+  id: FactoryConveyorIntersection
+  name: conveyor intersection (4-way)
+  description: An industrial conveyor crossroads capable of routing items in all 4 cardinal directions, one direction at a time.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Clickable
+  - type: InteractionOutline
+  - type: Transform
+    anchored: true
+  - type: Sprite
+    sprite: _Hex/Structures/Machines/Factory/conveyor_junction.rsi
+    drawdepth: HighFloorObjects
+    layers:
+    - state: junction_4way
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Base"]
+    - state: arrow_north
+      shader: unshaded
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Indicator"]
+  - type: ApcPowerReceiver
+  - type: ExtensionCableReceiver
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      conveyor:
+        shape: !type:PolygonShape
+          vertices:
+          - -0.50,-0.50
+          - 0.50,-0.50
+          - 0.50,0.50
+          - -0.50,0.50
+        layer:
+        - Impassable
+        - MidImpassable
+        - LowImpassable
+        - DoorPassable
+        hard: False
+  - type: Conveyor
+  - type: FactoryConveyorJunction
+    allowedAngles:
+    - 0
+    - 90
+    - 180
+    - 270
+  - type: DeviceNetwork
+    deviceNetId: Wireless
+    receiveFrequencyId: BasicDevice
+  - type: WirelessNetworkConnection
+    range: 200
+  - type: DeviceLinkSink
+    ports:
+    - FactoryConveyorNextDirection
+    - FactoryConveyorDirectionForward
+    - FactoryConveyorDirectionRight
+    - FactoryConveyorDirectionBackward
+    - FactoryConveyorDirectionLeft
+    - Forward
+    - Reverse
+    - Off
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.FactoryConveyorJunctionVisuals.Direction:
+        enum.FactoryConveyorJunctionVisualLayers.Indicator:
+          Forward: { state: arrow_north }
+          Right: { state: arrow_east }
+          Backward: { state: arrow_south }
+          Left: { state: arrow_west }
+  - type: Damageable
+    damageContainer: StructuralInorganic
+    damageModifierSet: Metallic
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 200
+      behaviors:
+      - !type:DoActsBehavior
+        acts: ["Destruction"]
+
+- type: entity
+  id: FactoryConveyorTJunction
+  name: conveyor T-junction
+  description: An industrial conveyor T-junction capable of routing items along the main line or into a right branch.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Clickable
+  - type: InteractionOutline
+  - type: Transform
+    anchored: true
+  - type: Sprite
+    sprite: _Hex/Structures/Machines/Factory/conveyor_junction.rsi
+    drawdepth: HighFloorObjects
+    layers:
+    - state: junction_t
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Base"]
+    - state: arrow_north
+      shader: unshaded
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Indicator"]
+  - type: ApcPowerReceiver
+  - type: ExtensionCableReceiver
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      conveyor:
+        shape: !type:PolygonShape
+          vertices:
+          - -0.50,-0.50
+          - 0.50,-0.50
+          - 0.50,0.50
+          - -0.50,0.50
+        layer:
+        - Impassable
+        - MidImpassable
+        - LowImpassable
+        - DoorPassable
+        hard: False
+  - type: Conveyor
+  - type: FactoryConveyorJunction
+    allowedAngles:
+    - 0
+    - 90
+    - 180
+  - type: DeviceNetwork
+    deviceNetId: Wireless
+    receiveFrequencyId: BasicDevice
+  - type: WirelessNetworkConnection
+    range: 200
+  - type: DeviceLinkSink
+    ports:
+    - FactoryConveyorNextDirection
+    - FactoryConveyorDirectionForward
+    - FactoryConveyorDirectionRight
+    - FactoryConveyorDirectionBackward
+    - Forward
+    - Reverse
+    - Off
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.FactoryConveyorJunctionVisuals.Direction:
+        enum.FactoryConveyorJunctionVisualLayers.Indicator:
+          Forward: { state: arrow_north }
+          Right: { state: arrow_east }
+          Backward: { state: arrow_south }
+          Left: { state: arrow_west }
+  - type: Damageable
+    damageContainer: StructuralInorganic
+    damageModifierSet: Metallic
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 200
+      behaviors:
+      - !type:DoActsBehavior
+        acts: ["Destruction"]
+
+- type: entity
+  id: FactoryConveyorTJunctionFlipped
+  name: conveyor T-junction (flipped)
+  description: An industrial conveyor T-junction capable of routing items along the main line or into a left branch.
+  placement:
+    mode: SnapgridCenter
+  components:
+  - type: Rotatable
+    rotateWhileAnchored: true
+  - type: Clickable
+  - type: InteractionOutline
+  - type: Transform
+    anchored: true
+  - type: Sprite
+    sprite: _Hex/Structures/Machines/Factory/conveyor_junction.rsi
+    drawdepth: HighFloorObjects
+    layers:
+    - state: junction_t
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Base"]
+    - state: arrow_north
+      shader: unshaded
+      map: ["enum.FactoryConveyorJunctionVisualLayers.Indicator"]
+  - type: ApcPowerReceiver
+  - type: ExtensionCableReceiver
+  - type: Physics
+    bodyType: Static
+  - type: Fixtures
+    fixtures:
+      conveyor:
+        shape: !type:PolygonShape
+          vertices:
+          - -0.50,-0.50
+          - 0.50,-0.50
+          - 0.50,0.50
+          - -0.50,0.50
+        layer:
+        - Impassable
+        - MidImpassable
+        - LowImpassable
+        - DoorPassable
+        hard: False
+  - type: Conveyor
+  - type: FactoryConveyorJunction
+    allowedAngles:
+    - 0
+    - 270
+    - 180
+  - type: DeviceNetwork
+    deviceNetId: Wireless
+    receiveFrequencyId: BasicDevice
+  - type: WirelessNetworkConnection
+    range: 200
+  - type: DeviceLinkSink
+    ports:
+    - FactoryConveyorNextDirection
+    - FactoryConveyorDirectionForward
+    - FactoryConveyorDirectionBackward
+    - FactoryConveyorDirectionLeft
+    - Forward
+    - Reverse
+    - Off
+  - type: Appearance
+  - type: GenericVisualizer
+    visuals:
+      enum.FactoryConveyorJunctionVisuals.Direction:
+        enum.FactoryConveyorJunctionVisualLayers.Indicator:
+          Forward: { state: arrow_north }
+          Right: { state: arrow_east }
+          Backward: { state: arrow_south }
+          Left: { state: arrow_west }
+  - type: Damageable
+    damageContainer: StructuralInorganic
+    damageModifierSet: Metallic
+  - type: Destructible
+    thresholds:
+    - trigger:
+        !type:DamageTrigger
+        damage: 200
+      behaviors:
+      - !type:DoActsBehavior
+        acts: ["Destruction"]
